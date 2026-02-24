@@ -1,14 +1,16 @@
 import { useState } from 'react'
-import reactLogo from './assets/react.svg'
-import viteLogo from '/vite.svg'
 import './App.css'
+import {Pokemon} from './types/pokemon';
+import { PokemonCard } from './components/PokemonCard';
+import { playerMon, enemyMon } from './utils/mockData';
 
 function App() {
-  const [count, setCount] = useState(0)
-
   return (
-    <div className='h-screen w-screen bg-gray-900 text-white flex justify-center items-center'>
-      <h1>Pokemon Rogue Start</h1>
+    <div className='min-h-screen w-screen bg-black text-white flex justify-center items-center'>
+      <div className='flex gap-10'>
+        <PokemonCard pokemon={enemyMon} />
+        <PokemonCard pokemon={playerMon} />
+      </div>
     </div>
   )
 }

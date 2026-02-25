@@ -10,6 +10,7 @@ function App() {
   // That's fine, just sticking to your variable name here:
   const [playerTurn, setPlayerTurn] = useState<boolean>(true);
   const [gameLog, setGameLog] = useState<string[]>([]);
+  const [floor, setFloor] = useState<number>(1); // For future expansion (like a roguelike)
 
   // ----------------------------------------------
   // EFFECT 1: INITIALIZE GAME (Runs Once)
@@ -99,10 +100,32 @@ function App() {
   const gameOver = player.hp === 0 || enemy.hp === 0;
   const winner = enemy.hp === 0 ? 'Player' : 'Enemy';
 
+  const spawnNewEnemy = async () => {
+    setEnemy(null);
+    setPlayerTurn(true);
+
+    const randomId = Math.floor(Math.random() * 151) + 1;
+    const newEnemy = await getRandomPokemon(randomId);
+
+    setEnemy({...newEnemy, isPlayer: false});
+    setGameLog((prev) => [...prev, `Floor ${floor + 1}: A wild ${newEnemy.name} appears!`]);
+  }
+
+  const handleNextFloor = () => {
+    setFloor(prev => prev + 1);
+    setPlayer((prev) => {
+      if (!prev) return null;
+      const newHp = Math.min(prev.hp + 10, prev.maxHp); // Heal 10 HP but not above max
+      return { ...prev, hp: newHp };
+    });
+    spawnNewEnemy();
+  }
   return (
     // Changed flex direction to 'flex-col' so the UI stacks nicely
     <div className='min-h-screen w-screen bg-black text-white flex flex-col justify-center items-center gap-10'>
-      
+      <h1 className="text-4xl font-bold text-yellow-400 tracking-widest">
+      FLOOR {floor}
+    </h1>
       {/* THE ARENA */}
       <div className='flex gap-10'>
         <PokemonCard pokemon={enemy} />
@@ -114,15 +137,25 @@ function App() {
         {gameOver ? (
           <div className='text-center animate-bounce'>
             <h2 className='text-3xl font-bold mb-2 text-yellow-400'>
-              {winner === 'Player' ? 'YOU WIN!' : 'YOU DIED'}
+              {winner === 'Player' ? 'VICTORY!' : 'GAME OVER'}
             </h2>
-            <button 
-              onClick={() => window.location.reload()}
-              className='bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg cursor-pointer'
-            >
-              Play Again
-            </button>
-          </div>
+            {winner === 'Player' ? (
+               /* NEXT FLOOR BUTTON */
+              <button 
+                onClick={handleNextFloor}
+                className='bg-green-600 hover:bg-green-700 text-white px-6 py-2 rounded-lg cursor-pointer'
+              >
+                Go to Floor {floor + 1} (Heal +10HP)
+              </button>
+            ) : (
+              <button 
+                  onClick={() => window.location.reload()}
+                  className='bg-red-600 hover:bg-red-700 text-white px-6 py-2 rounded-lg cursor-pointer'
+                >
+                  Restart Run
+                </button>
+              )}
+            </div>
         ) : (
           <>
             {playerTurn ? (

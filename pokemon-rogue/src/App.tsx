@@ -4,6 +4,7 @@ import { type Pokemon } from './types/pokemon';
 import { getRandomPokemon } from './utils/api'; 
 import type { Upgrade } from './types/upgrade';
 import { getRandomUpgrades } from './utils/gameLogic';
+import { scaleEnemyStats } from './utils/gameLogic';
 
 function App() {
   const [player, setPlayer] = useState<Pokemon | null>(null);
@@ -77,20 +78,23 @@ function App() {
   // ----------------------------------------------
   // HELPER FUNCTIONS
   // ----------------------------------------------
-  const spawnNewEnemy = async () => {
+  const spawnNewEnemy = async (floor: number) => {
     setEnemy(null); // Triggers loading state for enemy card
     setPlayerTurn(true);
 
     const randomId = Math.floor(Math.random() * 151) + 1;
     const newEnemy = await getRandomPokemon(randomId);
 
-    setEnemy({ ...newEnemy, isPlayer: false });
-    setGameLog((prev) => [...prev, `--- FLOOR ${floor + 1} ---`, `A wild ${newEnemy.name} appears!`]);
+    const nextFloor = floor + 1; 
+    const scaledEnemy = scaleEnemyStats(newEnemy, nextFloor);
+
+    setEnemy({ ...scaledEnemy, isPlayer: false });
+    setGameLog((prev) => [...prev, `--- FLOOR ${nextFloor} ---`, `A wild Level ${nextFloor} ${newEnemy.name} appears!`]);
   };
 
   const handleNextFloor = () => {
     setFloor((prev) => prev + 1);
-    spawnNewEnemy(); // Only spawn enemy, don't reset player
+    spawnNewEnemy(floor + 1); // Only spawn enemy, don't reset player
   };
 
   const handleSelectUpgrade = (upgrade: Upgrade) => {

@@ -6,4 +6,5 @@ export interface Pokemon {
     attack: number;
     speed: number;
     isPlayer: boolean;
+    level?:number;
 }

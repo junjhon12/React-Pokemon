@@ -15,7 +15,7 @@ export const PokemonCard = ({ pokemon }: PokemonCardProps) => {
       {/* Header */}
       <div className="bg-slate-800 text-white p-2 flex justify-between items-center">
         <h2 className="font-bold text-lg capitalize">{pokemon.name}</h2>
-        <span className="text-sm font-mono text-slate-300">LVL 5</span>
+        <span className="text-sm font-mono text-slate-300">LVL {pokemon.level || 1}</span>
       </div>
 
       {/* Image */}

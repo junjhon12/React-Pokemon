@@ -1,3 +1,5 @@
+import { type Move } from './move';
+
 export interface Pokemon {
     id: number;
     name: string;
@@ -7,4 +9,5 @@ export interface Pokemon {
     speed: number;
     isPlayer: boolean;
     level?:number;
+    moves?: Move[];
 }

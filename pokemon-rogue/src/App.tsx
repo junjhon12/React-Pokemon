@@ -3,9 +3,8 @@ import { useState, useEffect } from 'react';
 import { type Pokemon } from './types/pokemon';
 import { getRandomPokemon } from './utils/api'; // Ensure this path is correct!
 import type { Upgrade } from './types/upgrade';
-import { getRandomUpgrades } from './utils/gameLogic';
-import { scaleEnemyStats } from './utils/gameLogic';
 import type { Move } from './types/move';
+import { scaleEnemyStats, getRandomUpgrades, getTypeEffectiveness } from './utils/gameLogic';
 
 function App() {
   const [player, setPlayer] = useState<Pokemon | null>(null);
@@ -54,22 +53,25 @@ function App() {
     if (enemy.hp <= 0 || player.hp <= 0) return;
 
     const turnTimer = setTimeout(() => {
-      // Enemy picks a random move from their move list
-      // If they have no moves (older API code), fallback to raw attack
       const enemyMoves = enemy.moves || [];
       const randomMove = enemyMoves.length > 0 
         ? enemyMoves[Math.floor(Math.random() * enemyMoves.length)]
         : { name: 'Tackle', power: 40, accuracy: 100, type: 'normal' } as Move;
 
-      // Simple AI damage calc
-      const damage = Math.floor((enemy.attack * randomMove.power) / 50);
+      // CALC DAMAGE
+      const effectiveness = getTypeEffectiveness(randomMove.type, player.types);
+      const baseDamage = (enemy.attack * randomMove.power) / 50;
+      const finalDamage = Math.floor(baseDamage * effectiveness);
 
       setPlayer((prev) => {
         if (!prev) return null;
-        return { ...prev, hp: Math.max(prev.hp - damage, 0) };
+        return { ...prev, hp: Math.max(prev.hp - finalDamage, 0) };
       });
 
-      setGameLog((prev) => [...prev, `${enemy.name} used ${randomMove.name} for ${damage} damage!`]);
+      let logMsg = `${enemy.name} used ${randomMove.name} for ${finalDamage} damage!`;
+      if (effectiveness > 1) logMsg += " It's Super Effective!";
+
+      setGameLog((prev) => [...prev, logMsg]);
       setPlayerTurn(true);
       
     }, 1000);
@@ -120,6 +122,7 @@ function App() {
   const handleMoveClick = (move: Move) => {
     if (!player || !enemy) return;
 
+    // 1. Accuracy Check
     const hitChance = Math.random() * 100;
     if (hitChance > move.accuracy) {
       setGameLog((prev) => [...prev, `${player.name} used ${move.name} but missed!`]);
@@ -127,14 +130,23 @@ function App() {
       return;
     }
 
-    const damage = Math.floor((player.attack * move.power) / 50);
+    // 2. Calculate Multiplier
+    const effectiveness = getTypeEffectiveness(move.type, enemy.types);
+
+    // 3. Apply Multiplier to Damage
+    const baseDamage = (player.attack * move.power) / 50;
+    const finalDamage = Math.floor(baseDamage * effectiveness);
     
     setEnemy((prev) => {
       if (!prev) return null;
-      return { ...prev, hp: Math.max(prev.hp - damage, 0) };
+      return { ...prev, hp: Math.max(prev.hp - finalDamage, 0) };
     });
 
-    setGameLog((prev) => [...prev, `${player.name} used ${move.name} for ${damage} damage!`]);
+    // 4. Dynamic Log Message
+    let logMsg = `${player.name} used ${move.name} for ${finalDamage} damage!`;
+    if (effectiveness > 1) logMsg += " It's Super Effective!";
+    
+    setGameLog((prev) => [...prev, logMsg]);
     setPlayerTurn(false);
   };
 

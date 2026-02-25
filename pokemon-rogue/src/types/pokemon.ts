@@ -10,4 +10,5 @@ export interface Pokemon {
     isPlayer: boolean;
     level?:number;
     moves?: Move[];
+    types: string[];
 }

@@ -60,5 +60,6 @@ export const getRandomPokemon = async (id: number): Promise<Pokemon> => {
     isPlayer: false,
     moves: validMoves, // Attach the real moves!
     level: 1, // Default level
+    types: data.types.map((t: any) => t.type.name), // Get types for potential type advantages
   };
 };

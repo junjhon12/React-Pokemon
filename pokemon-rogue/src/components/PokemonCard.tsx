@@ -14,7 +14,16 @@ export const PokemonCard = ({ pokemon }: PokemonCardProps) => {
       
       {/* Header */}
       <div className="bg-slate-800 text-white p-2 flex justify-between items-center">
-        <h2 className="font-bold text-lg capitalize">{pokemon.name}</h2>
+        <div>
+          <h2 className="font-bold text-lg capitalize">{pokemon.name}</h2>
+          <div className="flex gap-1">
+            {pokemon.types.map(t => (
+              <span key={t} className="text-[10px] uppercase bg-slate-600 px-1 rounded">
+                {t}
+              </span>
+            ))}
+          </div>
+        </div>
         <span className="text-sm font-mono text-slate-300">LVL {pokemon.level || 1}</span>
       </div>
 

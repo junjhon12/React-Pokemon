@@ -1,6 +1,36 @@
 import type { Pokemon } from '../types/pokemon';
 import { type Upgrade } from '../types/upgrade';
 
+const TYPE_CHART: Record<string, string[]> = {
+  fire: ['grass', 'ice', 'bug', 'steel'],
+  water: ['fire', 'ground', 'rock'],
+  grass: ['water', 'ground', 'rock'],
+  electric: ['water', 'flying'],
+  ice: ['grass', 'ground', 'flying', 'dragon'],
+  fighting: ['normal', 'ice', 'rock', 'dark', 'steel'],
+  poison: ['grass', 'fairy'],
+  ground: ['fire', 'electric', 'poison', 'rock', 'steel'],
+  flying: ['grass', 'fighting', 'bug'],
+  psychic: ['fighting', 'poison'],
+  bug: ['grass', 'psychic', 'dark'],
+  rock: ['fire', 'ice', 'flying', 'bug'],
+  ghost: ['psychic', 'ghost'],
+  dragon: ['dragon'],
+  dark: ['psychic', 'ghost'],
+  steel: ['ice', 'rock', 'fairy'],
+  fairy: ['fighting', 'dragon', 'dark'],
+  normal: [],
+};
+
+export const getTypeEffectiveness = (moveType: string, defenderTypes: string[]): number => {
+  // If the move type exists in our chart, check if the defender has a weakness to it
+  const isSuperEffective = TYPE_CHART[moveType]?.some((weakness) => 
+    defenderTypes.includes(weakness)
+  );
+
+  return isSuperEffective ? 2 : 1;
+};
+
 const UPGRADES: Upgrade[] = [
   { id: '1', name: 'Protein', description: 'Increases Attack by 5', stat: 'attack', amount: 5 },
   { id: '2', name: 'Carbos', description: 'Increases Speed by 5', stat: 'speed', amount: 5 },

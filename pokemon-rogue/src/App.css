@@ -1,0 +1,33 @@
+/* src/App.css */
+
+/* THE ATTACK */
+@keyframes lunge-right {
+  0% { transform: translateX(0); }
+  50% { transform: translateX(30px); }
+  100% { transform: translateX(0); }
+}
+
+@keyframes lunge-left {
+  0% { transform: translateX(0); }
+  50% { transform: translateX(-30px); }
+  100% { transform: translateX(0); }
+}
+
+.animate-lunge-right {
+  animation: lunge-right 0.3s ease-in-out;
+}
+
+.animate-lunge-left {
+  animation: lunge-left 0.3s ease-in-out;
+}
+
+/* THE DAMAGE */
+@keyframes shake-red {
+  0%, 100% { transform: translateX(0); filter: none; }
+  25% { transform: translateX(-5px); filter: drop-shadow(0 0 10px red); }
+  75% { transform: translateX(5px); filter: drop-shadow(0 0 10px red); }
+}
+
+.animate-shake {
+  animation: shake-red 0.4s ease-in-out;
+}

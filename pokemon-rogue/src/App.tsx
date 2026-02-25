@@ -5,6 +5,7 @@ import { getRandomPokemon } from './utils/api'; // Ensure this path is correct!
 import type { Upgrade } from './types/upgrade';
 import type { Move } from './types/move';
 import { scaleEnemyStats, getRandomUpgrades, getTypeEffectiveness } from './utils/gameLogic';
+import './App.css';
 
 function App() {
   const [player, setPlayer] = useState<Pokemon | null>(null);
@@ -13,6 +14,8 @@ function App() {
   const [gameLog, setGameLog] = useState<string[]>([]);
   const [floor, setFloor] = useState<number>(1);
   const [upgrades, setUpgrades] = useState<Upgrade[]>([]);
+  const [playerAnimation, setPlayerAnimation] = useState<string>('');
+  const [enemyAnimation, setEnemyAnimation] = useState<string>('');
 
   // 1. INITIALIZE GAME
   useEffect(() => {
@@ -58,26 +61,40 @@ function App() {
         ? enemyMoves[Math.floor(Math.random() * enemyMoves.length)]
         : { name: 'Tackle', power: 40, accuracy: 100, type: 'normal' } as Move;
 
-      // CALC DAMAGE
-      const effectiveness = getTypeEffectiveness(randomMove.type, player.types);
-      const baseDamage = (enemy.attack * randomMove.power) / 50;
-      const finalDamage = Math.floor(baseDamage * effectiveness);
+      // 1. Enemy Lunges LEFT
+      setEnemyAnimation('animate-lunge-left');
 
-      setPlayer((prev) => {
-        if (!prev) return null;
-        return { ...prev, hp: Math.max(prev.hp - finalDamage, 0) };
-      });
+      // 2. Delay for Impact
+      setTimeout(() => {
+        const effectiveness = getTypeEffectiveness(randomMove.type, player.types);
+        const baseDamage = (enemy.attack * randomMove.power) / 50;
+        const finalDamage = Math.floor(baseDamage * effectiveness);
 
-      let logMsg = `${enemy.name} used ${randomMove.name} for ${finalDamage} damage!`;
-      if (effectiveness > 1) logMsg += " It's Super Effective!";
+        setPlayerAnimation('animate-shake'); // Player shakes
+        setPlayer((prev) => {
+          if (!prev) return null;
+          return { ...prev, hp: Math.max(prev.hp - finalDamage, 0) };
+        });
 
-      setGameLog((prev) => [...prev, logMsg]);
-      setPlayerTurn(true);
+        let logMsg = `${enemy.name} used ${randomMove.name} for ${finalDamage} damage!`;
+        if (effectiveness > 1) logMsg += " It's Super Effective!";
+        setGameLog((prev) => [...prev, logMsg]);
+
+        // 3. Cleanup
+        setTimeout(() => {
+          setEnemyAnimation('');
+          setPlayerAnimation('');
+          setPlayerTurn(true);
+        }, 400);
+
+      }, 300);
       
     }, 1000);
 
     return () => clearTimeout(turnTimer);
   }, [playerTurn, enemy, player]);
+
+
 
   // HELPER FUNCTIONS
   const spawnNewEnemy = async (floor: number) => {
@@ -112,6 +129,7 @@ function App() {
       } else {
         // @ts-ignore
         newStats[upgrade.stat] += upgrade.amount;
+        newStats.level = (newStats.level || 1) + 1;
       }
       return newStats;
     });
@@ -122,32 +140,42 @@ function App() {
   const handleMoveClick = (move: Move) => {
     if (!player || !enemy) return;
 
+    setPlayerAnimation('animate-lunge-right');
+
     // 1. Accuracy Check
     const hitChance = Math.random() * 100;
     if (hitChance > move.accuracy) {
-      setGameLog((prev) => [...prev, `${player.name} used ${move.name} but missed!`]);
-      setPlayerTurn(false);
+      setTimeout(() => {
+        setGameLog((prev) => [...prev, `${player.name} used ${move.name} but missed!`]);
+        setPlayerAnimation(''); // Reset
+        setPlayerTurn(false);
+      }, 500); // Small delay for the animation to finish
       return;
     }
 
-    // 2. Calculate Multiplier
     const effectiveness = getTypeEffectiveness(move.type, enemy.types);
-
-    // 3. Apply Multiplier to Damage
     const baseDamage = (player.attack * move.power) / 50;
     const finalDamage = Math.floor(baseDamage * effectiveness);
-    
-    setEnemy((prev) => {
-      if (!prev) return null;
-      return { ...prev, hp: Math.max(prev.hp - finalDamage, 0) };
-    });
 
-    // 4. Dynamic Log Message
-    let logMsg = `${player.name} used ${move.name} for ${finalDamage} damage!`;
-    if (effectiveness > 1) logMsg += " It's Super Effective!";
-    
-    setGameLog((prev) => [...prev, logMsg]);
-    setPlayerTurn(false);
+    setTimeout(() => {
+      setEnemyAnimation('animate-shake'); // Enemy shakes
+      setEnemy((prev) => {
+        if (!prev) return null;
+        return { ...prev, hp: Math.max(prev.hp - finalDamage, 0) };
+      });
+
+      let logMsg = `${player.name} used ${move.name} for ${finalDamage} damage!`;
+      if (effectiveness > 1) logMsg += " It's Super Effective!";
+      setGameLog((prev) => [...prev, logMsg]);
+
+      // 5. Cleanup after shake finishes
+      setTimeout(() => {
+        setPlayerAnimation('');
+        setEnemyAnimation('');
+        setPlayerTurn(false);
+      }, 400); 
+
+    }, 300); // Lunge Duration
   };
 
   // RENDER
@@ -187,8 +215,8 @@ function App() {
       ) : (
         <>
           <div className='flex gap-10'>
-            <PokemonCard pokemon={enemy} />
-            <PokemonCard pokemon={player} />
+            <PokemonCard pokemon={enemy} animation={enemyAnimation} />
+            <PokemonCard pokemon={player} animation={playerAnimation} />
           </div>
 
           <div className='flex flex-col items-center gap-4'>

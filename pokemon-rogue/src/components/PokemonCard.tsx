@@ -3,14 +3,15 @@ import { HealthBar } from './HealthBar'; // Make sure this import exists!
 
 interface PokemonCardProps {
   pokemon: Pokemon;
+  animation?: string;
 }
 
-export const PokemonCard = ({ pokemon }: PokemonCardProps) => {
+export const PokemonCard = ({ pokemon, animation }: PokemonCardProps) => {
   // 1. Get the Sprite Image
   const imgSrc = `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/${pokemon.id}.png`;
 
   return (
-    <div className="border-4 border-slate-800 rounded-xl bg-slate-100 w-64 shadow-xl overflow-hidden relative text-black">
+    <div className={`border-4 border-slate-800 rounded-xl bg-slate-100 w-64 shadow-xl overflow-hidden relative text-black ${animation}`}>
       
       {/* Header */}
       <div className="bg-slate-800 text-white p-2 flex justify-between items-center">

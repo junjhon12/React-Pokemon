@@ -1,7 +1,7 @@
 import { PokemonCard } from './components/PokemonCard';
 import { useState, useEffect } from 'react';
 import { type Pokemon } from './types/pokemon';
-import { getRandomPokemon } from './utilsfb/api'; // Make sure this path matches your folder name (utils or utilsfb)
+import { getRandomPokemon } from './utils/api'; // Make sure this path matches your folder name (utils or utilsfb)
 
 function App() {
   const [player, setPlayer] = useState<Pokemon | null>(null);

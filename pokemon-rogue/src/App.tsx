@@ -98,11 +98,29 @@ function App() {
   }, [enemy?.hp]);
 
   // 5. ENEMY AI
+  // 5. ENEMY AI
   useEffect(() => {
     if (playerTurn || !enemy || !player) return;
     if (enemy.hp <= 0 || player.hp <= 0) return;
 
     const turnTimer = setTimeout(() => {
+      
+      // 1. Pre-attack Status Check (Enemy)
+      if (enemy.status === 'freeze') {
+        if (Math.random() < 0.2) {
+          setGameLog(prev => [...prev, `${enemy.name} thawed out!`]);
+          setEnemy(e => e ? { ...e, status: 'normal' } : null);
+        } else {
+          setGameLog(prev => [...prev, `${enemy.name} is frozen solid!`]);
+          setPlayerTurn(true);
+          return;
+        }
+      } else if (enemy.status === 'paralyze' && Math.random() < 0.25) {
+        setGameLog(prev => [...prev, `${enemy.name} is paralyzed! It can't move!`]);
+        setPlayerTurn(true);
+        return;
+      }
+
       const enemyMoves = enemy.moves || [];
       const randomMove = enemyMoves.length > 0 
         ? enemyMoves[Math.floor(Math.random() * enemyMoves.length)]
@@ -116,13 +134,33 @@ function App() {
         const finalDamage = Math.floor(baseDamage * effectiveness);
 
         setPlayerAnimation('animate-shake');
+        
+        // 2. Apply Status to Player
+        let appliedStatus = player.status;
+        let statusLog = '';
+        if (randomMove.statusEffect && (!player.status || player.status === 'normal')) {
+          if (randomMove.power === 0 || Math.random() < 0.3) {
+            appliedStatus = randomMove.statusEffect;
+            statusLog = ` ${player.name} was inflicted with ${randomMove.statusEffect}!`;
+          }
+        }
+
         setPlayer((prev) => {
           if (!prev) return null;
-          return { ...prev, hp: Math.max(prev.hp - finalDamage, 0) };
+          return { ...prev, hp: Math.max(prev.hp - finalDamage, 0), status: appliedStatus };
         });
 
         let logMsg = `${enemy.name} used ${randomMove.name} for ${finalDamage} damage!`;
         if (effectiveness > 1) logMsg += " It's Super Effective!";
+        if (statusLog) logMsg += statusLog;
+
+        // 3. Post-attack Status Damage (Enemy)
+        if (enemy.status === 'burn' || enemy.status === 'poison') {
+          const tickDamage = Math.max(1, Math.floor(enemy.maxHp * 0.1));
+          setEnemy(e => e ? { ...e, hp: Math.max(e.hp - tickDamage, 0) } : null);
+          logMsg += ` ${enemy.name} took ${tickDamage} damage from its ${enemy.status}!`;
+        }
+
         setGameLog((prev) => [...prev, logMsg]);
 
         setTimeout(() => {
@@ -230,6 +268,22 @@ function App() {
   const handleMoveClick = (move: Move) => {
     if (!player || !enemy) return;
 
+    // 1. Pre-attack Status Check (Paralyze / Freeze)
+    if (player.status === 'freeze') {
+      if (Math.random() < 0.2) {
+        setGameLog(prev => [...prev, `${player.name} thawed out!`]);
+        setPlayer(p => p ? { ...p, status: 'normal' } : null);
+      } else {
+        setGameLog(prev => [...prev, `${player.name} is frozen solid!`]);
+        setPlayerTurn(false);
+        return;
+      }
+    } else if (player.status === 'paralyze' && Math.random() < 0.25) {
+      setGameLog(prev => [...prev, `${player.name} is paralyzed! It can't move!`]);
+      setPlayerTurn(false);
+      return;
+    }
+
     setPlayerAnimation('animate-lunge-right');
 
     const hitChance = Math.random() * 100;
@@ -248,13 +302,37 @@ function App() {
 
     setTimeout(() => {
       setEnemyAnimation('animate-shake'); 
+      
+      // 2. Apply Status to Enemy
+      let appliedStatus = enemy.status;
+      let statusLog = '';
+      if (move.statusEffect && (!enemy.status || enemy.status === 'normal')) {
+        // 100% chance for status moves, 30% chance for side-effect moves
+        if (move.power === 0 || Math.random() < 0.3) {
+          // Filter out "stunned" status as it's not supported
+          if (move.statusEffect !== 'stunned') {
+            appliedStatus = move.statusEffect as 'burn' | 'poison' | 'paralyze' | 'freeze';
+            statusLog = ` ${enemy.name} was inflicted with ${move.statusEffect}!`;
+          }
+        }
+      }
+
       setEnemy((prev) => {
         if (!prev) return null;
-        return { ...prev, hp: Math.max(prev.hp - finalDamage, 0) };
+        return { ...prev, hp: Math.max(prev.hp - finalDamage, 0), status: appliedStatus };
       });
 
       let logMsg = `${player.name} used ${move.name} for ${finalDamage} damage!`;
       if (effectiveness > 1) logMsg += " It's Super Effective!";
+      if (statusLog) logMsg += statusLog;
+
+      // 3. Post-attack Status Damage (Burn / Poison)
+      if (player.status === 'burn' || player.status === 'poison') {
+        const tickDamage = Math.max(1, Math.floor(player.maxHp * 0.1));
+        setPlayer(p => p ? { ...p, hp: Math.max(p.hp - tickDamage, 0) } : null);
+        logMsg += ` ${player.name} took ${tickDamage} damage from its ${player.status}!`;
+      }
+
       setGameLog((prev) => [...prev, logMsg]);
 
       setTimeout(() => {

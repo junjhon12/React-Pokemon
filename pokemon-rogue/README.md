@@ -1,73 +1,52 @@
-# React + TypeScript + Vite
+# Poké-Rogue 👾
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+![React](https://img.shields.io/badge/react-%2320232a.svg?style=for-the-badge&logo=react&logoColor=%2361DAFB)
+![TypeScript](https://img.shields.io/badge/typescript-%23007ACC.svg?style=for-the-badge&logo=typescript&logoColor=white)
+![TailwindCSS](https://img.shields.io/badge/tailwindcss-%2338B2AC.svg?style=for-the-badge&logo=tailwind-css&logoColor=white)
+![Vite](https://img.shields.io/badge/vite-%23646CFF.svg?style=for-the-badge&logo=vite&logoColor=white)
 
-Currently, two official plugins are available:
+**[🎮 Play the Live Demo Here]** *(Insert your Vercel/Netlify link here)*
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+![Gameplay Demo](./public/demo.gif) *(Capture a 10-second GIF of the battle loop and put it in your public folder)*
 
-## React Compiler
+## 📖 Overview
+Poké-Rogue is a browser-based, infinite-progression roguelike built entirely in React. Rather than a simple CRUD application, this project serves as a demonstration of **complex state-machine management**, **asynchronous data resolution**, and **dynamic UI rendering**.
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+The game hooks into the external [PokeAPI](https://pokeapi.co/), fetching live entity data, resolving nested endpoints (like movesets and status effects) in parallel, and mapping them into a strictly typed battle engine.
 
-## Expanding the ESLint configuration
+## ✨ Core Engineering Features
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+### ⚙️ Asynchronous Battle Engine
+The core game loop is driven by a custom state machine leveraging React hooks (`useState`, `useEffect`). 
+* **Turn Resolution:** Handles initiative (Speed-based), accuracy checks, type-effectiveness multipliers, and defensive mitigation.
+* **Animation Sequencing:** Utilizes nested `setTimeout` operations combined with CSS keyframes to delay state mutations, ensuring attack animations, damage calculation, and health-bar reduction occur in a visually satisfying, synchronous sequence without blocking the main thread.
 
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
+### 🔌 Dynamic Data Normalization
+Raw JSON from the PokeAPI is massive and deeply nested. 
+* **Data Mapping:** Transforms raw API payloads into lean, strictly-typed TypeScript interfaces (`Pokemon`, `Move`, `Upgrade`).
+* **Parallel Fetching:** Employs `Promise.all()` to resolve an array of random movesets concurrently before finalizing the character's generation, optimizing load times between dungeon floors.
 
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
+### 📈 Roguelike Progression Architecture
+Built to scale infinitely, the game relies on mathematical algorithms rather than hardcoded levels.
+* **Stat Scaling:** Enemy stats scale dynamically based on the current floor (`Floor * 0.1` multiplier), with forced legendary "Boss" encounters every 10 floors.
+* **Dynamic Loot Pools:** The loot generator checks the player's current ID against an `EVOLUTION_MAP` dictionary. Evolution stones are injected into the loot pool *only* if a valid evolution path exists.
+* **RPG Mechanics:** Implements Experience (XP) overflow calculations, level-up stat growth, and complex RNG stats like Critical Hit Chance and Dodge Rate.
 
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
-```
+### 🎨 Retro-SciFi UI Design
+The interface blends classic GBA-era aesthetics with a sleek, modern dashboard inspired by *Sword Art Online*.
+* **Responsive Layouts:** Built with utility-first Tailwind CSS, utilizing complex Flexbox and CSS Grid structures to create a split-pane dashboard.
+* **CSS Wizardry:** Uses CSS filters (`brightness-0`, `opacity`) to dynamically convert standard API sprites into holographic silhouettes for the equipment menu.
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+## 🧠 Architecture & Technical Decisions
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
+* **Scalable State Models:** Stats are stored in a nested `Record<StatKey, number>` object. This allows upgrades to dynamically target any stat (e.g., `newStats[targetStat] += upgrade.amount`) without requiring massive `switch` statements, making the codebase highly extensible.
+* **Separation of Concerns:** Business logic (damage math, effectiveness matrices, loot generation) is decoupled from the UI layer and stored in `src/utils/gameLogic.ts`.
+* **Status Effect Loop:** Engineered a pre-attack and post-attack check system. 'Paralyze' has a 25% chance to halt the `handleMoveClick` execution entirely, while 'Burn' triggers a specific 10% max HP deduction at the tail-end of the `useEffect` turn timer.
 
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
-```
+## 🚀 Local Development
+
+To run this project locally, you will need Node.js installed.
+
+1. **Clone the repository:**
+   ```bash
+   git clone [https://github.com/yourusername/pokemon-rogue.git](https://github.com/yourusername/pokemon-rogue.git)

@@ -41,34 +41,30 @@ export const getRandomPokemon = async (id: number): Promise<Pokemon> => {
   const attack = data.stats.find((s: any) => s.stat.name === 'attack').base_stat;
   const speed = data.stats.find((s: any) => s.stat.name === 'speed').base_stat;
 
-  // --- NEW MOVE LOGIC ---
-  // 1. Get all moves (sometimes 100+)
+  // --- MOVE LOGIC ---
   const allMoves = data.moves;
-
-  // 2. Shuffle and pick random candidates
-  // We pick more than 4 (e.g., 10) because some might fail our "fetchMoveDetails" check (like if they have no power)
   const shuffledMoves = allMoves.sort(() => 0.5 - Math.random()).slice(0, 10);
-
-  // 3. Fetch details in parallel
   const movePromises = shuffledMoves.map((m: any) => fetchMoveDetails(m.move.url));
   const resolvedMoves = await Promise.all(movePromises);
-
-  // 4. Filter out nulls and take the top 4
   const validMoves = resolvedMoves.filter((m): m is Move => m !== null).slice(0, 4);
-  // ----------------------
 
+  // RETURN THE NESTED OBJECT
   return {
     id: data.id,
     name: data.name.charAt(0).toUpperCase() + data.name.slice(1),
-    hp: hp,
-    maxHp: hp,
-    attack: attack,
-    speed: speed,
+    // This is the fix: Wrap these in a 'stats' object
+    stats: {
+      hp: hp,
+      maxHp: hp,
+      attack: attack,
+      speed: speed,
+    },
     isPlayer: false,
-    moves: validMoves, // Attach the real moves!
-    level: 1, // Default level
-    types: data.types.map((t: any) => t.type.name), // Get types for potential type advantages
+    moves: validMoves,
+    level: 1, 
+    types: data.types.map((t: any) => t.type.name),
     xp: 0,
-    maxXp: 100, // XP needed to level up (can be adjusted based on level)
+    maxXp: 100,
+    status: 'normal' // Added to match interface
   };
 };

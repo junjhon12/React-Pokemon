@@ -1,6 +1,6 @@
 import { PokemonCard } from './components/PokemonCard';
 import { useState, useEffect } from 'react';
-import { type Pokemon } from './types/pokemon';
+import { type Pokemon, type StatKey } from './types/pokemon';
 import { getRandomPokemon } from './utils/api'; 
 import type { Upgrade } from './types/upgrade';
 import type { Move } from './types/move';
@@ -34,13 +34,13 @@ function App() {
   }, []);
 
   useEffect(() => {
-    if (player && player.hp === 0) {
+    if (player && player.stats.hp === 0) {
       if (floor > highScore) {
         setHighScore(floor);
         localStorage.setItem('rogue-score', floor.toString());
       }
     }
-  }, [player?.hp]);
+  }, [player?.stats.hp]);
 
   const startGame = async () => {
     setIsGameStarted(true);
@@ -57,7 +57,7 @@ function App() {
     setPlayer(playerMon);
     setEnemy(enemyMon);
 
-    if (p1.speed >= p2.speed) {
+    if (p1.stats.speed >= p2.stats.speed) {
       setPlayerTurn(true);
       setGameLog((prev) => [...prev, `${p1.name} moves first!`]);
     } else {
@@ -67,7 +67,7 @@ function App() {
   };
 
   useEffect(() => {
-    if (enemy && enemy.hp <= 0 && upgrades.length === 0) {
+    if (enemy && enemy.stats.hp <= 0 && upgrades.length === 0) {
       if (player) {
         const xpGain = (enemy.level || 1) * 50; 
         let newPlayer = { ...player };
@@ -88,11 +88,11 @@ function App() {
       const loot = getRandomUpgrades(3, player?.id);
       setUpgrades(loot);
     }
-  }, [enemy?.hp]);
+  }, [enemy?.stats.hp]);
 
   useEffect(() => {
     if (playerTurn || !enemy || !player) return;
-    if (enemy.hp <= 0 || player.hp <= 0) return;
+    if (enemy.stats.hp <= 0 || player.stats.hp <= 0) return;
 
     const turnTimer = setTimeout(() => {
       if (enemy.status === 'freeze') {
@@ -119,7 +119,7 @@ function App() {
 
       setTimeout(() => {
         const effectiveness = getTypeEffectiveness(randomMove.type, player.types);
-        const baseDamage = (enemy.attack * randomMove.power) / 50;
+        const baseDamage = (enemy.stats.attack * randomMove.power) / 50;
         const finalDamage = Math.floor(baseDamage * effectiveness);
 
         setPlayerAnimation('animate-shake');
@@ -137,7 +137,7 @@ function App() {
 
         setPlayer((prev) => {
           if (!prev) return null;
-          return { ...prev, hp: Math.max(prev.hp - finalDamage, 0), status: appliedStatus };
+          return { ...prev, stats: { ...prev.stats, hp: Math.max(prev.stats.hp - finalDamage, 0) }, status: appliedStatus };
         });
 
         let logMsg = `${enemy.name} used ${randomMove.name} for ${finalDamage} damage!`;
@@ -145,8 +145,8 @@ function App() {
         if (statusLog) logMsg += statusLog;
 
         if (enemy.status === 'burn' || enemy.status === 'poison') {
-          const tickDamage = Math.max(1, Math.floor(enemy.maxHp * 0.1));
-          setEnemy(e => e ? { ...e, hp: Math.max(e.hp - tickDamage, 0) } : null);
+          const tickDamage = Math.max(1, Math.floor(enemy.stats.maxHp * 0.1));
+          setEnemy(e => e ? { ...e, stats: { ...e.stats, hp: Math.max(e.stats.hp - tickDamage, 0) } } : null);
           logMsg += ` ${enemy.name} took ${tickDamage} damage from its ${enemy.status}!`;
         }
 
@@ -181,13 +181,13 @@ function App() {
     let scaledEnemy = scaleEnemyStats(newEnemy, targetFloor);
 
     if (bossEnemy) {
-      scaledEnemy.hp = Math.floor(scaledEnemy.hp * 1.5);
-      scaledEnemy.attack = Math.floor(scaledEnemy.attack * 1.5);
-      scaledEnemy.speed = Math.floor(scaledEnemy.speed * 1.5);
+      scaledEnemy.stats.hp = Math.floor(scaledEnemy.stats.hp * 1.5);
+      scaledEnemy.stats.attack = Math.floor(scaledEnemy.stats.attack * 1.5);
+      scaledEnemy.stats.speed = Math.floor(scaledEnemy.stats.speed * 1.5);
     } else if (miniBossEnemy) {
-      scaledEnemy.hp = Math.floor(scaledEnemy.hp * 1.2);
-      scaledEnemy.attack = Math.floor(scaledEnemy.attack * 1.2);
-      scaledEnemy.speed = Math.floor(scaledEnemy.speed * 1.2);
+      scaledEnemy.stats.hp = Math.floor(scaledEnemy.stats.hp * 1.2);
+      scaledEnemy.stats.attack = Math.floor(scaledEnemy.stats.attack * 1.2);
+      scaledEnemy.stats.speed = Math.floor(scaledEnemy.stats.speed * 1.2);
     }
 
     setEnemy({ ...scaledEnemy, isPlayer: false });
@@ -210,7 +210,6 @@ function App() {
   const handleSelectUpgrade = async (upgrade: Upgrade) => {
     if (!player) return;
     if (upgrade.stat === 'evolve') {
-      // @ts-ignore
       const nextId = EVOLUTION_MAP ? EVOLUTION_MAP[player.id] : player.id + 1; 
       const evolvedBase = await getRandomPokemon(nextId);
       const currentLevel = player.level || 1;
@@ -222,20 +221,24 @@ function App() {
         maxXp: player.maxXp
       });
       setGameLog(prev => [...prev, `What? ${player.name} is evolving!`, `Congratulations! You evolved into ${evolvedBase.name}!`]);
-    } else {
+    }else {
       setPlayer((prev) => {
         if (!prev) return null;
-        let newStats = { ...prev };
-        if (upgrade.stat === 'hp') {
-          newStats.hp = Math.min(prev.hp + upgrade.amount, prev.maxHp);
-        } else if (upgrade.stat === 'maxHp') {
-          newStats.maxHp += upgrade.amount;
-          newStats.hp += upgrade.amount;
-        } else {
-          // @ts-ignore
-          newStats[upgrade.stat] += upgrade.amount;
+
+        // We use the StatKey to safely update the stats object
+        const targetStat = upgrade.stat as StatKey; 
+        
+        const newStats = {
+          ...prev.stats,
+          [targetStat]: prev.stats[targetStat] + upgrade.amount
+        };
+
+        // Special logic for HP to ensure it doesn't exceed MaxHP
+        if (targetStat === 'hp') {
+          newStats.hp = Math.min(newStats.hp, prev.stats.maxHp);
         }
-        return newStats;
+
+        return { ...prev, stats: newStats };
       });
     }
     setUpgrades([]);
@@ -273,7 +276,7 @@ function App() {
     }
 
     const effectiveness = getTypeEffectiveness(move.type, enemy.types);
-    const baseDamage = (player.attack * move.power) / 50;
+    const baseDamage = (player.stats.attack * move.power) / 50;
     const finalDamage = Math.floor(baseDamage * effectiveness);
 
     setTimeout(() => {
@@ -292,7 +295,14 @@ function App() {
 
       setEnemy((prev) => {
         if (!prev) return null;
-        return { ...prev, hp: Math.max(prev.hp - finalDamage, 0), status: appliedStatus };
+        return { 
+          ...prev, 
+          stats: { 
+            ...prev.stats, 
+            hp: Math.max(prev.stats.hp - finalDamage, 0) 
+          }, 
+          status: appliedStatus 
+        };
       });
 
       let logMsg = `${player.name} used ${move.name} for ${finalDamage} damage!`;
@@ -300,8 +310,8 @@ function App() {
       if (statusLog) logMsg += statusLog;
 
       if (player.status === 'burn' || player.status === 'poison') {
-        const tickDamage = Math.max(1, Math.floor(player.maxHp * 0.1));
-        setPlayer(p => p ? { ...p, hp: Math.max(p.hp - tickDamage, 0) } : null);
+        const tickDamage = Math.max(1, Math.floor(player.stats.maxHp * 0.1));
+        setPlayer(p => p ? { ...p, stats: { ...p.stats, hp: Math.max(p.stats.hp - tickDamage, 0) } } : null);
         logMsg += ` ${player.name} took ${tickDamage} damage from its ${player.status}!`;
       }
 
@@ -319,25 +329,28 @@ function App() {
   const handleLevelUp = (currentStats: Pokemon, overflowXp: number) => {
     const newLevel = (currentStats.level || 1) + 1;
     const growthRate = 0.1; 
-    const newMaxHp = Math.floor(currentStats.maxHp * (1 + growthRate));
-    const newAttack = Math.floor(currentStats.attack * (1 + growthRate));
-    const newSpeed = Math.floor(currentStats.speed * (1 + growthRate));
+    const newMaxHp = Math.floor(currentStats.stats.maxHp * (1 + growthRate));
+    const newAttack = Math.floor(currentStats.stats.attack * (1 + growthRate));
+    const newSpeed = Math.floor(currentStats.stats.speed * (1 + growthRate));
     const newMaxXp = Math.floor((currentStats.maxXp || 100) * 1.2);
 
     return {
       ...currentStats,
       level: newLevel,
-      maxHp: newMaxHp,
-      hp: newMaxHp,
-      attack: newAttack,
-      speed: newSpeed,
+      stats: {
+        ...currentStats.stats,
+        maxHp: newMaxHp,
+        hp: newMaxHp,
+        attack: newAttack,
+        speed: newSpeed
+      },
       xp: overflowXp,
       maxXp: newMaxXp
     };
   };
 
-  const gameOver = player?.hp === 0 || enemy?.hp === 0;
-  const winner = enemy?.hp === 0 ? 'Player' : 'Enemy';
+  const gameOver = player?.stats.hp === 0 || enemy?.stats.hp === 0;
+  const winner = enemy?.stats.hp === 0 ? 'Player' : 'Enemy';
 
   return (
     <div className='min-h-screen w-screen bg-black flex items-center justify-center font-mono p-4'>
@@ -372,15 +385,15 @@ function App() {
                   <div className='space-y-2 text-lg font-bold border-b-4 border-black pb-4 mb-4'>
                     <div className='flex justify-between'>
                       <span className='text-red-700'>❤️ Health</span>
-                      <span>{player.hp}/{player.maxHp}</span>
+                      <span>{player.stats.hp}/{player.stats.maxHp}</span>
                     </div>
                     <div className='flex justify-between'>
                       <span className='text-orange-700'>👊 Attack</span>
-                      <span>{player.attack}</span>
+                      <span>{player.stats.attack}</span>
                     </div>
                     <div className='flex justify-between'>
                       <span className='text-blue-700'>⚡ Speed</span>
-                      <span>{player.speed}</span>
+                      <span>{player.stats.speed}</span>
                     </div>
                   </div>
 

@@ -7,7 +7,6 @@ import type { Move } from './types/move';
 import { scaleEnemyStats, getRandomUpgrades, getTypeEffectiveness, EVOLUTION_MAP } from './utils/gameLogic';
 import './App.css';
 
-// --- NEW: Type to Symbol Dictionary ---
 const TYPE_SYMBOLS: Record<string, string> = {
   normal: '⚪', fire: '🔥', water: '💧', grass: '🌿', electric: '⚡',
   ice: '❄️', fighting: '🥊', poison: '☠️', ground: '⛰️', flying: '🦅',
@@ -27,7 +26,6 @@ function App() {
   const [isGameStarted, setIsGameStarted] = useState<boolean>(false);
   const [highScore, setHighScore] = useState<number>(0);
 
-  // 1. LOAD HIGH SCORE
   useEffect(() => {
     const savedScore = localStorage.getItem('rogue-score');
     if (savedScore) {
@@ -35,7 +33,6 @@ function App() {
     }
   }, []);
 
-  // 2. SAVE HIGH SCORE ON DEATH
   useEffect(() => {
     if (player && player.hp === 0) {
       if (floor > highScore) {
@@ -45,7 +42,6 @@ function App() {
     }
   }, [player?.hp]);
 
-  // 3. START GAME LOGIC
   const startGame = async () => {
     setIsGameStarted(true);
     setFloor(1);
@@ -70,7 +66,6 @@ function App() {
     }
   };
 
-  // 4. WATCH FOR ENEMY DEATH (Loot Trigger)
   useEffect(() => {
     if (enemy && enemy.hp <= 0 && upgrades.length === 0) {
       if (player) {
@@ -95,7 +90,6 @@ function App() {
     }
   }, [enemy?.hp]);
 
-  // 5. ENEMY AI
   useEffect(() => {
     if (playerTurn || !enemy || !player) return;
     if (enemy.hp <= 0 || player.hp <= 0) return;
@@ -171,8 +165,6 @@ function App() {
     return () => clearTimeout(turnTimer);
   }, [playerTurn, enemy, player]);
 
-
-  // HELPER FUNCTIONS
   const spawnNewEnemy = async (targetFloor: number) => {
     setEnemy(null);
     setPlayerTurn(true);
@@ -377,15 +369,6 @@ function App() {
             <div className='p-6 flex-1'>
               {player && (
                 <>
-                  {/* --- NEW: Name with Type Symbols! --- */}
-                  <h2 className='text-3xl font-black uppercase mb-4 border-b-4 border-black pb-2 flex justify-between items-center'>
-                    <span>{player.name}</span>
-                    <span className="flex gap-1 text-2xl drop-shadow-sm">
-                      {player.types.map(t => (
-                        <span key={t} title={t.toUpperCase()}>{TYPE_SYMBOLS[t] || '⚪'}</span>
-                      ))}
-                    </span>
-                  </h2>
                   <div className='space-y-2 text-lg font-bold border-b-4 border-black pb-4 mb-4'>
                     <div className='flex justify-between'>
                       <span className='text-red-700'>❤️ Health</span>
@@ -401,15 +384,58 @@ function App() {
                     </div>
                   </div>
 
-                  {/* Visual Inventory Bag */}
-                  <div className='mt-4'>
-                    <p className='text-md font-bold mb-2 flex items-center gap-2'>
-                       Poké Ball Bag
-                    </p>
-                    <div className='grid grid-cols-7 gap-1'>
-                      {[...Array(21)].map((_, i) => (
-                        <div key={i} className='w-full aspect-square bg-gray-400 border border-gray-500 rounded-sm shadow-inner'></div>
-                      ))}
+                  {/* --- NEW: SAO Style Equipment Menu --- */}
+                  <div className='mt-6 bg-white border-2 border-gray-300 rounded shadow-md flex flex-col relative overflow-hidden font-sans'>
+                    {/* Header line mimicking SAO menu accent */}
+                    <div className='p-2 flex justify-center border-b border-gray-100'>
+
+                       <h3 className='text-gray-400 text-[10px] font-bold uppercase'>
+                        <h2 className='text-sm uppercase flex justify-between items-center'>
+                          <span>{player.name}</span>
+                          <span className="flex gap-2 text-sm drop-shadow-sm">
+                            {player.types.map(t => (
+                              <span key={t} title={t.toUpperCase()}>{TYPE_SYMBOLS[t] || '⚪'}</span>
+                            ))}
+                          </span>
+                        </h2>
+                       </h3>
+
+                    </div>
+                    
+                    {/* Central Display Area */}
+                    <div className='relative h-48 flex items-center justify-center bg-gradient-to-b from-white to-[#f4f4f4]'>
+                      
+                      {/* Character Sprite Hologram */}
+                      <img 
+                        src={`https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/${player.id}.png`}
+                        alt="Avatar Silhouette"
+                        className="w-32 h-32 object-contain opacity-40 brightness-0 pointer-events-none" 
+                      />
+                      
+                      {/* Equipment Nodes (Orbital positioning) */}
+                      <div className='absolute top-4 w-7 h-7 rounded-full border-[3px] border-gray-200 bg-gray-500 hover:bg-gray-400 shadow-sm cursor-pointer'></div>
+                      <div className='absolute top-10 right-14 w-7 h-7 rounded-full border-[3px] border-gray-200 bg-gray-500 hover:bg-gray-400 shadow-sm cursor-pointer'></div>
+                      <div className='absolute bottom-10 right-14 w-7 h-7 rounded-full border-[3px] border-gray-200 bg-gray-500 hover:bg-gray-400 shadow-sm cursor-pointer'></div>
+                      
+                      {/* Active/Selected Node (Orange) */}
+                      <div className='absolute bottom-4 w-7 h-7 rounded-full border-[3px] border-gray-200 bg-white shadow-md cursor-pointer flex items-center justify-center'>
+                         <div className="w-3 h-3 rounded-full bg-orange-400"></div>
+                      </div>
+                      
+                      <div className='absolute bottom-10 left-14 w-7 h-7 rounded-full border-[3px] border-gray-200 bg-gray-500 hover:bg-gray-400 shadow-sm cursor-pointer'></div>
+                      <div className='absolute top-10 left-14 w-7 h-7 rounded-full border-[3px] border-gray-200 bg-gray-500 hover:bg-gray-400 shadow-sm cursor-pointer'></div>
+                    </div>
+
+                    {/* SAO Style Detail Pane */}
+                    <div className='bg-[#e9ecef] p-3 border-t border-gray-200'>
+                      <div className='flex items-center gap-2 mb-1'>
+                        <div className='bg-gray-500 text-white rounded-full w-4 h-4 flex items-center justify-center text-[10px] font-bold'>✖</div>
+                        <span className='font-bold text-gray-700 text-sm'>Held Item</span>
+                      </div>
+                      <div className='pl-6 text-xs text-gray-500 space-y-1'>
+                        <p>No item currently equipped.</p>
+                        <p>Stat Bonus: <span className="text-orange-400">0.00</span></p>
+                      </div>
                     </div>
                   </div>
                 </>

@@ -1,5 +1,6 @@
 import { type Pokemon } from '../types/pokemon';
 import { HealthBar } from './HealthBar'; // Make sure this import exists!
+import { XpBar } from './XpBar'; 
 
 interface PokemonCardProps {
   pokemon: Pokemon;
@@ -44,9 +45,17 @@ export const PokemonCard = ({ pokemon, animation }: PokemonCardProps) => {
           <span>{pokemon.hp}/{pokemon.maxHp}</span>
         </div>
         
-        {/* THIS IS THE MISSING PIECE */}
         <HealthBar hp={pokemon.hp} maxHp={pokemon.maxHp} />
 
+        {pokemon.isPlayer && pokemon.xp !== undefined && pokemon.maxXp && (
+          <div className="mt-1">
+             <div className="flex justify-between text-[10px] text-blue-400 font-bold px-1">
+                <span>EXP</span>
+                <span>{pokemon.xp} / {pokemon.maxXp}</span>
+             </div>
+             <XpBar xp={pokemon.xp} maxXp={pokemon.maxXp} />
+          </div>
+        )}
         <div className="flex justify-between mt-4 text-sm text-slate-700 font-bold">
           <div className="bg-slate-200 px-3 py-1 rounded">⚔️ {pokemon.attack}</div>
           <div className="bg-slate-200 px-3 py-1 rounded">⚡ {pokemon.speed}</div>

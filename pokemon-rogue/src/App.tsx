@@ -65,6 +65,35 @@ function App() {
   // 4. WATCH FOR ENEMY DEATH (Loot Trigger)
   useEffect(() => {
     if (enemy && enemy.hp <= 0 && upgrades.length === 0) {
+      
+      // --- NEW XP LOGIC ---
+      if (player) {
+        const xpGain = (enemy.level || 1) * 50; // Base 50 XP per level
+        let newPlayer = { ...player };
+        
+        // Add XP
+        // Use '|| 0' and '|| 100' to handle potential undefined values safely
+        const currentXp = newPlayer.xp || 0;
+        const currentMaxXp = newPlayer.maxXp || 100;
+        
+        let totalXp = currentXp + xpGain;
+        let leveledUp = false;
+
+        // Check for Level Up
+        if (totalXp >= currentMaxXp) {
+          const overflow = totalXp - currentMaxXp;
+          newPlayer = handleLevelUp(newPlayer, overflow);
+          leveledUp = true;
+          setGameLog(prev => [...prev, `Level Up! You are now Lvl ${newPlayer.level}!`]);
+        } else {
+          newPlayer.xp = totalXp;
+          setGameLog(prev => [...prev, `You gained ${xpGain} XP.`]);
+        }
+
+        setPlayer(newPlayer);
+      }
+      // --------------------
+
       const loot = getRandomUpgrades(3);
       setUpgrades(loot);
     }
@@ -189,6 +218,34 @@ function App() {
       }, 400); 
 
     }, 300); 
+  };
+
+  const handleLevelUp = (currentStats: Pokemon, overflowXp: number) => {
+    // 1. Increase Level
+    const newLevel = (currentStats.level || 1) + 1;
+    
+    // 2. Increase Stats (10% growth approx)
+    const growthRate = 0.1; 
+    const newMaxHp = Math.floor(currentStats.maxHp * (1 + growthRate));
+    const newAttack = Math.floor(currentStats.attack * (1 + growthRate));
+    const newSpeed = Math.floor(currentStats.speed * (1 + growthRate));
+
+    // 3. Heal fully on level up? Or just add the difference? Let's Heal Fully for that "Ding!" feeling.
+    const newHp = newMaxHp; 
+
+    // 4. Increase XP Requirement (Harder to level up next time)
+    const newMaxXp = Math.floor((currentStats.maxXp || 100) * 1.2);
+
+    return {
+      ...currentStats,
+      level: newLevel,
+      maxHp: newMaxHp,
+      hp: newHp,
+      attack: newAttack,
+      speed: newSpeed,
+      xp: overflowXp, // Carry over extra XP
+      maxXp: newMaxXp
+    };
   };
 
   // RENDER

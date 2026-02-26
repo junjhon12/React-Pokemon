@@ -11,4 +11,6 @@ export interface Pokemon {
     level?:number;
     moves?: Move[];
     types: string[];
+    xp?: number;
+    maxXp?: number;
 }

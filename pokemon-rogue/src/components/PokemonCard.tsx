@@ -11,6 +11,15 @@ export const PokemonCard = ({ pokemon, animation }: PokemonCardProps) => {
   // 1. Get the Sprite Image
   const imgSrc = `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/${pokemon.id}.png`;
 
+  const statusStyles: Record<string, string> = {
+    burn: 'bg-red-200 text-red-800',
+    poison: 'bg-green-200 text-green-800',
+    paralyze: 'bg-yellow-200 text-yellow-800',
+    freeze: 'bg-blue-200 text-blue-800',
+    stunned: 'bg-gray-200 text-gray-800',
+    normal: 'bg-slate-200 text-slate-800',
+  };
+
   return (
     <div className={`border-4 border-slate-800 rounded-xl bg-slate-100 w-64 shadow-xl overflow-hidden relative text-black ${animation}`}>
       
@@ -18,6 +27,11 @@ export const PokemonCard = ({ pokemon, animation }: PokemonCardProps) => {
       <div className="bg-slate-800 text-white p-2 flex justify-between items-center">
         <div>
           <h2 className="font-bold text-lg capitalize">{pokemon.name}</h2>
+          {pokemon.status && pokemon.status !== 'normal' && (
+            <div className={`text-xs font-bold px-2 py-1 rounded ${statusStyles[pokemon.status]}`}>
+              {pokemon.status.toUpperCase()}
+            </div>
+          )}
           <div className="flex gap-1">
             {pokemon.types.map(t => (
               <span key={t} className="text-[10px] uppercase bg-slate-600 px-1 rounded">

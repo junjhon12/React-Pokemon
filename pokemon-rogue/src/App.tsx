@@ -144,14 +144,36 @@ function App() {
     setEnemy(null);
     setPlayerTurn(true);
 
-    const randomId = Math.floor(Math.random() * 151) + 1;
+    const bossEnemy = targetFloor % 10 === 0;
+    const legendaryPokemonIds = [144, 145, 146, 150]; // Articuno, Zapdos, Moltres, Mewtwo
+    const miniBossEnemy = targetFloor % 5 === 0 && !bossEnemy;
+    const pseduoLegendaryIds = [65, 94, 115, 248]; // Alakazam, Gengar, Kangaskhan, Tyranitar
+    const randomId = bossEnemy ? legendaryPokemonIds[Math.floor(Math.random() * legendaryPokemonIds.length)] :
+                     miniBossEnemy ? pseduoLegendaryIds[Math.floor(Math.random() * pseduoLegendaryIds.length)] :
+                     Math.floor(Math.random() * 151) + 1;
     const newEnemy = await getRandomPokemon(randomId);
 
-    // FIX: Use targetFloor directly, don't add +1 again
     let scaledEnemy = scaleEnemyStats(newEnemy, targetFloor);
 
+    if (bossEnemy) {
+      scaledEnemy.hp = Math.floor(scaledEnemy.hp * 1.5);
+      scaledEnemy.attack = Math.floor(scaledEnemy.attack * 1.5);
+      scaledEnemy.speed = Math.floor(scaledEnemy.speed * 1.5);
+    } else if (miniBossEnemy) {
+      scaledEnemy.hp = Math.floor(scaledEnemy.hp * 1.2);
+      scaledEnemy.attack = Math.floor(scaledEnemy.attack * 1.2);
+      scaledEnemy.speed = Math.floor(scaledEnemy.speed * 1.2);
+    }
+
     setEnemy({ ...scaledEnemy, isPlayer: false });
-    setGameLog((prev) => [...prev, `--- FLOOR ${targetFloor} ---`, `A wild Level ${targetFloor} ${newEnemy.name} appears!`]);
+
+    if(bossEnemy) {
+      setGameLog(prev => [...prev, `A ${newEnemy.name} appears! It's a BOSS!`]);
+    } else if (miniBossEnemy) {
+      setGameLog(prev => [...prev, `It's a ${newEnemy.name} ?! A Mini-Boss!`]);
+    } else {
+      setGameLog(prev => [...prev, `A wild ${newEnemy.name} appears!`]);
+    }
   };
 
   const handleNextFloor = () => {
@@ -304,8 +326,8 @@ function App() {
         /* --- THE GAME --- */
         <div className='flex flex-col items-center gap-10 w-full max-w-4xl'>
            
-           <h1 className="text-4xl font-bold text-yellow-400 tracking-widest">
-             FLOOR {floor}
+           <h1 className={`text-4xl font-bold tracking-widest ${floor % 10 === 0 ? 'text-red-500 animate-pulse' : floor % 5 === 0 ? 'text-orange-400' : 'text-yellow-400'}`}>
+              {floor % 10 === 0 ? `BOSS FLOOR ${floor}` : floor % 5 === 0 ? `MINI-BOSS FLOOR ${floor}` : `FLOOR ${floor}`}
            </h1>
 
            {(!player || !enemy) ? (

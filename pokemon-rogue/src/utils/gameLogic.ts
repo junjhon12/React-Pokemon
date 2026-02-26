@@ -57,7 +57,7 @@ export const getRandomUpgrades = (count: number, playerId?: number): Upgrade[] =
     currentPool.push({
       id: 'evo_stone',
       name: 'Evolution Stone',
-      description: 'Evolve into your next form! (Massive stat boost)',
+      description: 'Evolve into your next form!',
       stat: 'evolve',
       amount: 0,
     });

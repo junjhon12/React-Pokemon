@@ -1,6 +1,17 @@
 import type { Pokemon } from '../types/pokemon';
 import { type Upgrade } from '../types/upgrade';
 
+export const EVOLUTION_MAP: Record<number, number> = {
+  1: 2, 2: 3,       // Bulbasaur -> Ivysaur -> Venusaur
+  4: 5, 5: 6,       // Charmander -> Charmeleon -> Charizard
+  7: 8, 8: 9,       // Squirtle -> Wartortle -> Blastoise
+  10: 11, 11: 12,   // Caterpie line
+  13: 14, 14: 15,   // Weedle line
+  16: 17, 17: 18,   // Pidgey line
+  25: 26,           // Pikachu -> Raichu
+  // You can easily expand this list later!
+};
+
 const TYPE_CHART: Record<string, string[]> = {
   fire: ['grass', 'ice', 'bug', 'steel'],
   water: ['fire', 'ground', 'rock'],
@@ -39,9 +50,19 @@ const UPGRADES: Upgrade[] = [
   { id: '5', name: 'Iron', description: 'Increases Attack by 8 (Rare)', stat: 'attack', amount: 8 }, // Rare version
 ];
 
-export const getRandomUpgrades = (count: number): Upgrade[] => {
+export const getRandomUpgrades = (count: number, playerId?: number): Upgrade[] => {
+  let currentPool = [...UPGRADES];
   // Shuffle the array and take the first 'count' items
-  const shuffled = [...UPGRADES].sort(() => 0.5 - Math.random());
+  if (playerId && EVOLUTION_MAP[playerId]) {
+    currentPool.push({
+      id: 'evo_stone',
+      name: 'Evolution Stone',
+      description: 'Evolve into your next form! (Massive stat boost)',
+      stat: 'evolve',
+      amount: 0,
+    });
+  }
+  const shuffled = currentPool.sort(() => 0.5 - Math.random());
   return shuffled.slice(0, count);
 };
 

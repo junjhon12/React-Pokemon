@@ -4,7 +4,7 @@ import { type Pokemon } from './types/pokemon';
 import { getRandomPokemon } from './utils/api'; 
 import type { Upgrade } from './types/upgrade';
 import type { Move } from './types/move';
-import { scaleEnemyStats, getRandomUpgrades, getTypeEffectiveness } from './utils/gameLogic';
+import { scaleEnemyStats, getRandomUpgrades, getTypeEffectiveness, EVOLUTION_MAP } from './utils/gameLogic';
 import './App.css';
 
 function App() {
@@ -77,13 +77,11 @@ function App() {
         const currentMaxXp = newPlayer.maxXp || 100;
         
         let totalXp = currentXp + xpGain;
-        let leveledUp = false;
 
         // Check for Level Up
         if (totalXp >= currentMaxXp) {
           const overflow = totalXp - currentMaxXp;
           newPlayer = handleLevelUp(newPlayer, overflow);
-          leveledUp = true;
           setGameLog(prev => [...prev, `Level Up! You are now Lvl ${newPlayer.level}!`]);
         } else {
           newPlayer.xp = totalXp;
@@ -94,7 +92,7 @@ function App() {
       }
       // --------------------
 
-      const loot = getRandomUpgrades(3);
+      const loot = getRandomUpgrades(3, player?.id);
       setUpgrades(loot);
     }
   }, [enemy?.hp]);
@@ -162,21 +160,47 @@ function App() {
     spawnNewEnemy(nextFloor);
   };
 
-  const handleSelectUpgrade = (upgrade: Upgrade) => {
+  const handleSelectUpgrade = async (upgrade: Upgrade) => {
     if (!player) return;
-    setPlayer((prev) => {
-      if (!prev) return null;
-      let newStats = { ...prev };
-      if (upgrade.stat === 'hp') {
-        newStats.hp = Math.min(prev.hp + upgrade.amount, prev.maxHp);
-      } else if (upgrade.stat === 'maxHp') {
-        newStats.maxHp += upgrade.amount;
-        newStats.hp += upgrade.amount;
-      } else {
-        newStats[upgrade.stat] += upgrade.amount;
-      }
-      return newStats;
-    });
+
+    if (upgrade.stat === 'evolve') {
+      // --- EVOLUTION LOGIC ---
+      // Get the ID of the next evolution
+      // @ts-ignore - Importing EVOLUTION_MAP is needed, but we can do a safe check
+      const nextId = EVOLUTION_MAP ? EVOLUTION_MAP[player.id] : player.id + 1; 
+      
+      // Fetch the new form from the API
+      const evolvedBase = await getRandomPokemon(nextId);
+      
+      // Keep our current level and XP progress
+      const currentLevel = player.level || 1;
+      const scaledEvolved = scaleEnemyStats(evolvedBase, currentLevel);
+
+      setPlayer({
+        ...scaledEvolved,
+        isPlayer: true,
+        xp: player.xp,
+        maxXp: player.maxXp
+      });
+      
+      setGameLog(prev => [...prev, `What? ${player.name} is evolving!`, `Congratulations! You evolved into ${evolvedBase.name}!`]);
+    } else {
+      // --- NORMAL STAT LOGIC (Existing code) ---
+      setPlayer((prev) => {
+        if (!prev) return null;
+        let newStats = { ...prev };
+        if (upgrade.stat === 'hp') {
+          newStats.hp = Math.min(prev.hp + upgrade.amount, prev.maxHp);
+        } else if (upgrade.stat === 'maxHp') {
+          newStats.maxHp += upgrade.amount;
+          newStats.hp += upgrade.amount;
+        } else {
+          // @ts-ignore
+          newStats[upgrade.stat] += upgrade.amount;
+        }
+        return newStats;
+      });
+    }
     setUpgrades([]);
     handleNextFloor();
   };

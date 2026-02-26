@@ -7,6 +7,14 @@ import type { Move } from './types/move';
 import { scaleEnemyStats, getRandomUpgrades, getTypeEffectiveness, EVOLUTION_MAP } from './utils/gameLogic';
 import './App.css';
 
+// --- NEW: Type to Symbol Dictionary ---
+const TYPE_SYMBOLS: Record<string, string> = {
+  normal: '⚪', fire: '🔥', water: '💧', grass: '🌿', electric: '⚡',
+  ice: '❄️', fighting: '🥊', poison: '☠️', ground: '⛰️', flying: '🦅',
+  psychic: '🔮', bug: '🐛', rock: '🪨', ghost: '👻', dragon: '🐉',
+  dark: '🌙', steel: '⚙️', fairy: '✨'
+};
+
 function App() {
   const [player, setPlayer] = useState<Pokemon | null>(null);
   const [enemy, setEnemy] = useState<Pokemon | null>(null);
@@ -369,8 +377,14 @@ function App() {
             <div className='p-6 flex-1'>
               {player && (
                 <>
-                  <h2 className='text-3xl font-black uppercase mb-4 border-b-4 border-black pb-2'>
-                    {player.name}
+                  {/* --- NEW: Name with Type Symbols! --- */}
+                  <h2 className='text-3xl font-black uppercase mb-4 border-b-4 border-black pb-2 flex justify-between items-center'>
+                    <span>{player.name}</span>
+                    <span className="flex gap-1 text-2xl drop-shadow-sm">
+                      {player.types.map(t => (
+                        <span key={t} title={t.toUpperCase()}>{TYPE_SYMBOLS[t] || '⚪'}</span>
+                      ))}
+                    </span>
                   </h2>
                   <div className='space-y-2 text-lg font-bold border-b-4 border-black pb-4 mb-4'>
                     <div className='flex justify-between'>
@@ -384,10 +398,6 @@ function App() {
                     <div className='flex justify-between'>
                       <span className='text-blue-700'>⚡ Speed</span>
                       <span>{player.speed}</span>
-                    </div>
-                    <div className='flex justify-between'>
-                      <span className='text-purple-700'>✨ Types</span>
-                      <span className='uppercase text-sm'>{player.types.join('/')}</span>
                     </div>
                   </div>
 

@@ -545,17 +545,6 @@ function App() {
                 </>
               )}
             </div>
-
-            {/* Bottom Right Panel (Action Detail) */}
-            <div className='h-[150px] bg-[#1a1a24] p-6 text-white'>
-              <h2 className='text-2xl font-black text-red-500 uppercase border-b-2 border-gray-700 pb-2 mb-2'>
-                 Combat Status
-              </h2>
-              <p className='text-lg text-gray-300'>
-                 {playerTurn ? 'Select a move from the left panel...' : 'Enemy is preparing to attack...'}
-              </p>
-            </div>
-
           </div>
         </div>
       )}

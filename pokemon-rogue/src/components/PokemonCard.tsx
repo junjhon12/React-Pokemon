@@ -17,9 +17,15 @@ export const PokemonCard = ({ pokemon }: PokemonCardProps) => {
       </div>
       <div className="flex items-center gap-2 mb-1">
         <span className="text-xs font-black text-green-400 italic">HP</span>
-        <div className="flex-1"><HealthBar hp={pokemon.hp} maxHp={pokemon.maxHp} /></div>
+        <div className="flex-1">
+          {/* Use the nested stats object here */}
+          <HealthBar hp={pokemon.stats.hp} maxHp={pokemon.stats.maxHp} />
+        </div>
       </div>
-      <div className="text-right font-black text-xl">{pokemon.hp} / {pokemon.maxHp}</div>
+      {/* And here */}
+      <div className="text-right font-black text-xl">
+        {pokemon.stats.hp} / {pokemon.stats.maxHp}
+      </div>
     </div>
   );
 };

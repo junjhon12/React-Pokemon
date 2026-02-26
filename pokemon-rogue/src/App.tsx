@@ -98,7 +98,6 @@ function App() {
   }, [enemy?.hp]);
 
   // 5. ENEMY AI
-  // 5. ENEMY AI
   useEffect(() => {
     if (playerTurn || !enemy || !player) return;
     if (enemy.hp <= 0 || player.hp <= 0) return;
@@ -140,8 +139,11 @@ function App() {
         let statusLog = '';
         if (randomMove.statusEffect && (!player.status || player.status === 'normal')) {
           if (randomMove.power === 0 || Math.random() < 0.3) {
-            appliedStatus = randomMove.statusEffect;
-            statusLog = ` ${player.name} was inflicted with ${randomMove.statusEffect}!`;
+            // Filter out "stunned" status as it's not supported
+            if (randomMove.statusEffect !== 'stunned') {
+              appliedStatus = randomMove.statusEffect as 'burn' | 'poison' | 'paralyze' | 'freeze';
+              statusLog = ` ${player.name} was inflicted with ${randomMove.statusEffect}!`;
+            }
           }
         }
 

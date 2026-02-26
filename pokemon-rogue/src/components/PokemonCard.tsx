@@ -28,7 +28,7 @@ export const PokemonCard = ({ pokemon, animation }: PokemonCardProps) => {
         <div>
           <h2 className="font-bold text-lg capitalize">{pokemon.name}</h2>
           {pokemon.status && pokemon.status !== 'normal' && (
-            <div className={`text-xs font-bold px-2 py-1 rounded ${statusStyles[pokemon.status]}`}>
+            <div className={`text-xs font-bold px-1 mb-1 rounded ${statusStyles[pokemon.status]}`}>
               {pokemon.status.toUpperCase()}
             </div>
           )}

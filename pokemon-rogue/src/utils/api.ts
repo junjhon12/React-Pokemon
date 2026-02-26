@@ -11,7 +11,13 @@ const fetchMoveDetails = async (url: string): Promise<Move | null> => {
 
     // Only keep moves that actually deal damage or do something useful
     // (Filter out complex status moves for now to keep it simple)
-    if (!data.power && data.power !== 0) return null; 
+    if (!data.power && data.meta?.category?.name !== 'ailment') return null;
+
+    let moveStatus:any = null;
+    const ailmentName = data.meta?.ailment?.name;
+    if (['burn', 'poison', 'paralysis', 'freeze'].includes(ailmentName)) {
+      moveStatus = ailmentName === 'paralysis' ? 'paralyze' : ailmentName;
+    }
 
     return {
       name: data.name.replace('-', ' '), // "fire-punch" -> "fire punch"
@@ -19,6 +25,7 @@ const fetchMoveDetails = async (url: string): Promise<Move | null> => {
       power: data.power || 0, // Status moves might be null, set to 0
       accuracy: data.accuracy || 100,
       pp: data.pp || 15,
+      statusEffect: moveStatus,
     };
   } catch (e) {
     console.error("Error fetching move:", e);

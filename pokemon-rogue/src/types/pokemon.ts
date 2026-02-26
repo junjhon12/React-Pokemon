@@ -13,4 +13,5 @@ export interface Pokemon {
     types: string[];
     xp?: number;
     maxXp?: number;
+    status?: 'normal' | 'burn' | 'poison' | 'paralyze' | 'freeze';
 }

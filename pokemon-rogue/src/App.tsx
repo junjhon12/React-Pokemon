@@ -65,19 +65,13 @@ function App() {
   // 4. WATCH FOR ENEMY DEATH (Loot Trigger)
   useEffect(() => {
     if (enemy && enemy.hp <= 0 && upgrades.length === 0) {
-      
-      // --- NEW XP LOGIC ---
       if (player) {
-        const xpGain = (enemy.level || 1) * 50; // Base 50 XP per level
+        const xpGain = (enemy.level || 1) * 50; 
         let newPlayer = { ...player };
-        
-        // Add XP
         const currentXp = newPlayer.xp || 0;
         const currentMaxXp = newPlayer.maxXp || 100;
-        
         let totalXp = currentXp + xpGain;
 
-        // Check for Level Up
         if (totalXp >= currentMaxXp) {
           const overflow = totalXp - currentMaxXp;
           newPlayer = handleLevelUp(newPlayer, overflow);
@@ -86,11 +80,8 @@ function App() {
           newPlayer.xp = totalXp;
           setGameLog(prev => [...prev, `You gained ${xpGain} XP.`]);
         }
-
         setPlayer(newPlayer);
       }
-      // --------------------
-
       const loot = getRandomUpgrades(3, player?.id);
       setUpgrades(loot);
     }
@@ -102,8 +93,6 @@ function App() {
     if (enemy.hp <= 0 || player.hp <= 0) return;
 
     const turnTimer = setTimeout(() => {
-      
-      // 1. Pre-attack Status Check (Enemy)
       if (enemy.status === 'freeze') {
         if (Math.random() < 0.2) {
           setGameLog(prev => [...prev, `${enemy.name} thawed out!`]);
@@ -133,7 +122,6 @@ function App() {
 
         setPlayerAnimation('animate-shake');
         
-        // 2. Apply Status to Player
         let appliedStatus = player.status;
         let statusLog = '';
         if (randomMove.statusEffect && (!player.status || player.status === 'normal')) {
@@ -154,7 +142,6 @@ function App() {
         if (effectiveness > 1) logMsg += " It's Super Effective!";
         if (statusLog) logMsg += statusLog;
 
-        // 3. Post-attack Status Damage (Enemy)
         if (enemy.status === 'burn' || enemy.status === 'poison') {
           const tickDamage = Math.max(1, Math.floor(enemy.maxHp * 0.1));
           setEnemy(e => e ? { ...e, hp: Math.max(e.hp - tickDamage, 0) } : null);
@@ -183,9 +170,9 @@ function App() {
     setPlayerTurn(true);
 
     const bossEnemy = targetFloor % 10 === 0;
-    const legendaryPokemonIds = [144, 145, 146, 150]; // Articuno, Zapdos, Moltres, Mewtwo
+    const legendaryPokemonIds = [144, 145, 146, 150]; 
     const miniBossEnemy = targetFloor % 5 === 0 && !bossEnemy;
-    const pseduoLegendaryIds = [65, 94, 115, 248]; // Alakazam, Gengar, Kangaskhan, Tyranitar
+    const pseduoLegendaryIds = [65, 94, 115, 248]; 
     const randomId = bossEnemy ? legendaryPokemonIds[Math.floor(Math.random() * legendaryPokemonIds.length)] :
                      miniBossEnemy ? pseduoLegendaryIds[Math.floor(Math.random() * pseduoLegendaryIds.length)] :
                      Math.floor(Math.random() * 151) + 1;
@@ -222,22 +209,18 @@ function App() {
 
   const handleSelectUpgrade = async (upgrade: Upgrade) => {
     if (!player) return;
-
     if (upgrade.stat === 'evolve') {
       // @ts-ignore
       const nextId = EVOLUTION_MAP ? EVOLUTION_MAP[player.id] : player.id + 1; 
       const evolvedBase = await getRandomPokemon(nextId);
-      
       const currentLevel = player.level || 1;
       const scaledEvolved = scaleEnemyStats(evolvedBase, currentLevel);
-
       setPlayer({
         ...scaledEvolved,
         isPlayer: true,
         xp: player.xp,
         maxXp: player.maxXp
       });
-      
       setGameLog(prev => [...prev, `What? ${player.name} is evolving!`, `Congratulations! You evolved into ${evolvedBase.name}!`]);
     } else {
       setPlayer((prev) => {
@@ -335,20 +318,17 @@ function App() {
 
   const handleLevelUp = (currentStats: Pokemon, overflowXp: number) => {
     const newLevel = (currentStats.level || 1) + 1;
-    
     const growthRate = 0.1; 
     const newMaxHp = Math.floor(currentStats.maxHp * (1 + growthRate));
     const newAttack = Math.floor(currentStats.attack * (1 + growthRate));
     const newSpeed = Math.floor(currentStats.speed * (1 + growthRate));
-
-    const newHp = newMaxHp; 
     const newMaxXp = Math.floor((currentStats.maxXp || 100) * 1.2);
 
     return {
       ...currentStats,
       level: newLevel,
       maxHp: newMaxHp,
-      hp: newHp,
+      hp: newMaxHp,
       attack: newAttack,
       speed: newSpeed,
       xp: overflowXp,
@@ -360,120 +340,187 @@ function App() {
   const winner = enemy?.hp === 0 ? 'Player' : 'Enemy';
 
   return (
-    <div className='min-h-screen w-screen bg-black text-white flex flex-col justify-center items-center font-mono'>
+    <div className='min-h-screen w-screen bg-black flex items-center justify-center font-mono p-4'>
       
       {!isGameStarted ? (
-        <div className="text-center space-y-8">
+        <div className="text-center space-y-8 text-white">
           <h1 className="text-6xl font-bold text-yellow-400 tracking-tighter animate-pulse">
             POKÉ-ROGUE
           </h1>
-          
           <div className="border-4 border-slate-700 p-8 rounded-xl bg-slate-900">
             <p className="text-slate-400 mb-2">BEST RUN</p>
             <p className="text-4xl text-green-400 font-bold">FLOOR {highScore}</p>
           </div>
-
           <button 
             onClick={startGame}
             className="bg-red-600 hover:bg-red-700 text-white text-2xl font-bold py-4 px-12 rounded-full border-4 border-red-800 shadow-lg hover:scale-105 transition-all cursor-pointer"
           >
             START RUN
           </button>
-
-          <p className="text-slate-500 text-sm">v1.0.0 • React • Tailwind • PokeAPI</p>
         </div>
       ) : (
-        <div className='flex flex-col items-center gap-10 w-full max-w-4xl'>
-           
-           <h1 className={`text-4xl font-bold tracking-widest ${floor % 10 === 0 ? 'text-red-500 animate-pulse' : floor % 5 === 0 ? 'text-orange-400' : 'text-yellow-400'}`}>
-              {floor % 10 === 0 ? `BOSS FLOOR ${floor}` : floor % 5 === 0 ? `MINI-BOSS FLOOR ${floor}` : `FLOOR ${floor}`}
-           </h1>
-
-           {(!player || !enemy) ? (
-              <h1 className="text-2xl animate-pulse">Summoning Monsters...</h1>
-           ) : (
-             <>
-               {upgrades.length > 0 ? (
-                <div className="flex flex-col items-center gap-6">
-                  <h2 className="text-3xl font-bold text-yellow-400">CHOOSE YOUR REWARD</h2>
-                  <div className="flex gap-4">
-                    {upgrades.map((u) => (
-                      <button
-                        key={u.id}
-                        onClick={() => handleSelectUpgrade(u)}
-                        className="bg-slate-800 border-2 border-yellow-500 p-6 rounded-xl hover:bg-slate-700 transition-all hover:scale-105 w-48 flex flex-col items-center gap-2 cursor-pointer"
-                      >
-                        <span className="text-xl font-bold text-white">{u.name}</span>
-                        <span className="text-sm text-gray-300 text-center">{u.description}</span>
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              ) : (
+        /* --- RETRO RPG DASHBOARD LAYOUT --- */
+        <div className='w-full max-w-6xl h-[800px] flex bg-white border-4 border-black rounded-lg overflow-hidden shadow-2xl'>
+          
+          {/* LEFT PANEL: Player Dashboard */}
+          <div className='w-[400px] bg-[#d3d3d3] flex flex-col border-r-4 border-black shrink-0 text-black'>
+            
+            {/* Top Stats Area */}
+            <div className='p-6 flex-1'>
+              {player && (
                 <>
-                  {/* CLASSIC ARENA LAYOUT */}
-                  <div className='w-full max-w-3xl flex flex-col p-10 rounded-3xl bg-gradient-to-b from-slate-800 to-slate-900 border-4 border-slate-700 shadow-2xl relative overflow-hidden mb-8'>
-                    
-                    {/* Enemy: Top Right */}
-                    <div className='self-end z-10'>
-                      <PokemonCard pokemon={enemy} animation={enemyAnimation} />
+                  <h2 className='text-3xl font-black uppercase mb-4 border-b-4 border-black pb-2'>
+                    {player.name}
+                  </h2>
+                  <div className='space-y-2 text-lg font-bold border-b-4 border-black pb-4 mb-4'>
+                    <div className='flex justify-between'>
+                      <span className='text-red-700'>❤️ Health</span>
+                      <span>{player.hp}/{player.maxHp}</span>
                     </div>
-
-                    {/* Player: Bottom Left */}
-                    <div className='self-start z-10 -mt-12'>
-                      <PokemonCard pokemon={player} animation={playerAnimation} />
+                    <div className='flex justify-between'>
+                      <span className='text-orange-700'>👊 Attack</span>
+                      <span>{player.attack}</span>
+                    </div>
+                    <div className='flex justify-between'>
+                      <span className='text-blue-700'>⚡ Speed</span>
+                      <span>{player.speed}</span>
+                    </div>
+                    <div className='flex justify-between'>
+                      <span className='text-purple-700'>✨ Types</span>
+                      <span className='uppercase text-sm'>{player.types.join('/')}</span>
                     </div>
                   </div>
 
-                  <div className='flex flex-col items-center gap-4'>
-                    {gameOver ? (
-                      <div className='text-center animate-bounce'>
-                        <h2 className='text-3xl font-bold mb-2 text-yellow-400'>
-                          {winner === 'Player' ? 'VICTORY!' : 'GAME OVER'}
-                        </h2>
-                        {winner === 'Enemy' && (
-                          <button 
-                            onClick={() => setIsGameStarted(false)}
-                            className='bg-red-600 hover:bg-red-700 text-white px-6 py-2 rounded-lg cursor-pointer'
-                          >
-                            Return to Menu
-                          </button>
-                        )}
-                      </div>
-                    ) : (
-                      <>
-                        {playerTurn ? (
-                          <div className="grid grid-cols-2 gap-4">
-                            {player.moves?.map((move, index) => (
-                              <button
-                                key={index}
-                                onClick={() => handleMoveClick(move)}
-                                className="bg-slate-800 border-2 border-slate-600 hover:border-yellow-400 text-white p-4 rounded-lg w-40 transition-all active:scale-95 cursor-pointer"
-                              >
-                                <div className="font-bold text-lg">{move.name}</div>
-                                <div className="text-xs text-slate-400 flex justify-between mt-1">
-                                  <span>{move.type.toUpperCase()}</span>
-                                  <span>PWR {move.power}</span>
-                                </div>
-                              </button>
-                            ))}
-                          </div>
-                        ) : (
-                          <p className='text-gray-400 italic text-xl'>Enemy is thinking...</p>
-                        )}
-                      </>
-                    )}
-
-                    <div className='bg-slate-900 border-2 border-slate-700 p-4 rounded-lg w-96 h-32 overflow-y-auto font-mono text-sm'>
-                      {gameLog.map((log, i) => (
-                        <p key={i} className='border-b border-slate-800 pb-1 mb-1'>{log}</p>
+                  {/* Visual Inventory Bag */}
+                  <div className='mt-4'>
+                    <p className='text-md font-bold mb-2 flex items-center gap-2'>
+                       Poké Ball Bag
+                    </p>
+                    <div className='grid grid-cols-7 gap-1'>
+                      {[...Array(21)].map((_, i) => (
+                        <div key={i} className='w-full aspect-square bg-gray-400 border border-gray-500 rounded-sm shadow-inner'></div>
                       ))}
                     </div>
                   </div>
                 </>
               )}
-             </>
-           )}
+            </div>
+
+            {/* Bottom Left Moves Area */}
+            <div className='h-[250px] bg-[#1a1a24] p-4 flex flex-col justify-end border-t-4 border-black'>
+              {(!player || !enemy) ? null : playerTurn ? (
+                <div className="grid grid-cols-2 gap-2 h-full">
+                  {player.moves?.map((move, index) => (
+                    <button
+                      key={index}
+                      onClick={() => handleMoveClick(move)}
+                      className="bg-transparent border-2 border-white hover:bg-white hover:text-black text-white font-bold uppercase text-sm rounded transition-all active:scale-95 flex flex-col items-center justify-center p-2 cursor-pointer"
+                    >
+                      <span className="text-lg mb-1 text-center leading-tight">{move.name}</span>
+                      <span className="text-[10px] opacity-70">{move.type}</span>
+                    </button>
+                  ))}
+                </div>
+              ) : (
+                <div className="h-full flex items-center justify-center">
+                  <p className='text-red-500 font-bold text-xl animate-pulse'>ENEMY TURN</p>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* RIGHT PANEL: The Arena & Logs */}
+          <div className='flex-1 flex flex-col relative bg-[#1a1a24]'>
+            
+            {/* Top Header Bar */}
+            <div className='h-12 bg-[#b31429] flex items-center px-6 justify-between border-b-4 border-black'>
+              <h1 className='text-white font-black text-xl tracking-widest uppercase'>
+                {floor % 10 === 0 ? `BOSS ROOM ${floor}` : floor % 5 === 0 ? `MINI-BOSS ${floor}` : `ROOM ${floor}`}
+              </h1>
+              <span className="text-gray-200 font-bold text-sm">AREA {Math.ceil(floor/5)}</span>
+            </div>
+
+            {/* Main Arena Display */}
+            <div className='flex-1 relative bg-gradient-to-b from-[#87ceeb] to-[#90ee90] overflow-hidden border-b-4 border-black'>
+              
+              {/* Game Log Overlay (Top of Arena) */}
+              <div className='absolute top-0 left-0 w-full h-32 bg-black/80 text-green-400 p-4 overflow-y-auto text-sm font-mono z-30'>
+                {gameLog.map((log, i) => (
+                  <p key={i} className="mb-1">{log}</p>
+                ))}
+              </div>
+
+              {/* OVERLAYS: Loot & Game Over */}
+              {upgrades.length > 0 && (
+                <div className="absolute inset-0 bg-black/90 z-50 flex flex-col items-center justify-center">
+                  <h2 className="text-3xl font-black text-yellow-400 mb-8">CHOOSE REWARD</h2>
+                  <div className="flex gap-4">
+                    {upgrades.map((u) => (
+                      <button
+                        key={u.id}
+                        onClick={() => handleSelectUpgrade(u)}
+                        className="bg-gray-800 border-2 border-yellow-500 p-4 rounded-xl hover:bg-gray-700 transition-all text-white w-48 flex flex-col items-center cursor-pointer"
+                      >
+                        <span className="text-xl font-bold text-center">{u.name}</span>
+                        <span className="text-xs text-gray-300 text-center mt-2">{u.description}</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+              {gameOver && upgrades.length === 0 && (
+                <div className='absolute inset-0 bg-black/90 z-50 flex flex-col items-center justify-center'>
+                  <h2 className='text-6xl font-black mb-6 text-yellow-400'>
+                    {winner === 'Player' ? 'VICTORY!' : 'GAME OVER'}
+                  </h2>
+                  {winner === 'Enemy' && (
+                    <button 
+                      onClick={() => setIsGameStarted(false)}
+                      className='bg-red-600 hover:bg-red-700 border-2 border-white text-white px-8 py-4 rounded-xl font-bold text-xl cursor-pointer'
+                    >
+                      Finish Run
+                    </button>
+                  )}
+                </div>
+              )}
+
+              {/* SPRITES AND FLOATING INFO BARS */}
+              {player && enemy && (
+                <>
+                  {/* Enemy (Top Right) */}
+                  <div className={`absolute top-40 right-10 flex items-center gap-4 z-10 ${enemyAnimation}`}>
+                    <PokemonCard pokemon={enemy} />
+                    <img 
+                      src={`https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/${enemy.id}.png`}
+                      alt={enemy.name}
+                      className="w-48 h-48 pixelated drop-shadow-xl"
+                    />
+                  </div>
+
+                  {/* Player (Bottom Left) */}
+                  <div className={`absolute bottom-10 left-10 flex items-center gap-4 z-20 ${playerAnimation}`}>
+                    <img 
+                      src={`https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/back/${player.id}.png`}
+                      alt={player.name}
+                      className="w-56 h-56 pixelated drop-shadow-xl"
+                    />
+                    <PokemonCard pokemon={player} />
+                  </div>
+                </>
+              )}
+            </div>
+
+            {/* Bottom Right Panel (Action Detail) */}
+            <div className='h-[150px] bg-[#1a1a24] p-6 text-white'>
+              <h2 className='text-2xl font-black text-red-500 uppercase border-b-2 border-gray-700 pb-2 mb-2'>
+                 Combat Status
+              </h2>
+              <p className='text-lg text-gray-300'>
+                 {playerTurn ? 'Select a move from the left panel...' : 'Enemy is preparing to attack...'}
+              </p>
+            </div>
+
+          </div>
         </div>
       )}
     </div>

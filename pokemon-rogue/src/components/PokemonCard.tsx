@@ -1,83 +1,25 @@
 import { type Pokemon } from '../types/pokemon';
 import { HealthBar } from './HealthBar'; 
-import { XpBar } from './XpBar'; 
 
 interface PokemonCardProps {
   pokemon: Pokemon;
-  animation?: string;
 }
 
-export const PokemonCard = ({ pokemon, animation }: PokemonCardProps) => {
-  // 1. DYNAMIC SPRITE: Back view for player, Front view for enemy
-  const imgSrc = pokemon.isPlayer 
-    ? `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/back/${pokemon.id}.png`
-    : `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/${pokemon.id}.png`;
-
-  const statusStyles: Record<string, string> = {
-    burn: 'bg-red-200 text-red-800',
-    poison: 'bg-green-200 text-green-800',
-    paralyze: 'bg-yellow-200 text-yellow-800',
-    freeze: 'bg-blue-200 text-blue-800',
-    stunned: 'bg-gray-200 text-gray-800',
-    normal: 'bg-slate-200 text-slate-800',
-  };
-
+export const PokemonCard = ({ pokemon }: PokemonCardProps) => {
   return (
-    <div className={`border-4 border-slate-800 rounded-xl bg-slate-100 w-64 shadow-xl overflow-hidden relative text-black ${animation}`}>
-      
-      {/* Header */}
-      <div className="bg-slate-800 text-white p-2 flex justify-between items-center">
-        <div>
-          <h2 className="font-bold text-lg capitalize">{pokemon.name}</h2>
-          {pokemon.status && pokemon.status !== 'normal' && (
-            <div className={`text-xs font-bold px-2 py-1 rounded ${statusStyles[pokemon.status]}`}>
-              {pokemon.status.toUpperCase()}
-            </div>
-          )}
-          <div className="flex gap-1">
-            {pokemon.types.map(t => (
-              <span key={t} className="text-[10px] uppercase bg-slate-600 px-1 rounded">
-                {t}
-              </span>
-            ))}
-          </div>
-        </div>
-        <span className="text-sm font-mono text-slate-300">LVL {pokemon.level || 1}</span>
+    <div 
+      className="bg-[#2a2631] border-4 border-[#18161d] text-white p-3 w-64 shadow-xl font-mono relative" 
+      style={{ borderRadius: '16px 4px 16px 4px' }}
+    >
+      <div className="flex justify-between items-end mb-2 border-b-2 border-gray-600 pb-1">
+        <h2 className="font-bold text-lg tracking-wide">{pokemon.name}</h2>
+        <span className="font-bold text-sm">Lv. {pokemon.level || 1}</span>
       </div>
-
-      {/* Image */}
-      <div className="bg-white p-4 flex justify-center items-center h-40">
-        <img 
-            src={imgSrc} 
-            alt={pokemon.name} 
-            className="w-32 h-32 object-contain pixelated" 
-        />
+      <div className="flex items-center gap-2 mb-1">
+        <span className="text-xs font-black text-green-400 italic">HP</span>
+        <div className="flex-1"><HealthBar hp={pokemon.hp} maxHp={pokemon.maxHp} /></div>
       </div>
-
-      {/* Stats & Health Bar */}
-      <div className="p-4 space-y-2">
-        <div className="flex justify-between text-xs font-bold text-slate-500 mb-1">
-          <span>HP</span>
-          <span>{pokemon.hp}/{pokemon.maxHp}</span>
-        </div>
-        
-        <HealthBar hp={pokemon.hp} maxHp={pokemon.maxHp} />
-
-        {pokemon.isPlayer && pokemon.xp !== undefined && pokemon.maxXp && (
-          <div className="mt-1">
-             <div className="flex justify-between text-[10px] text-blue-400 font-bold px-1">
-                <span>EXP</span>
-                <span>{pokemon.xp} / {pokemon.maxXp}</span>
-             </div>
-             <XpBar xp={pokemon.xp} maxXp={pokemon.maxXp} />
-          </div>
-        )}
-        <div className="flex justify-between mt-4 text-sm text-slate-700 font-bold">
-          <div className="bg-slate-200 px-3 py-1 rounded">⚔️ {pokemon.attack}</div>
-          <div className="bg-slate-200 px-3 py-1 rounded">⚡ {pokemon.speed}</div>
-        </div>
-      </div>
-      
+      <div className="text-right font-black text-xl">{pokemon.hp} / {pokemon.maxHp}</div>
     </div>
   );
 };

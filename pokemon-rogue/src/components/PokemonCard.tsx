@@ -1,5 +1,5 @@
 import { type Pokemon } from '../types/pokemon';
-import { HealthBar } from './HealthBar'; // Make sure this import exists!
+import { HealthBar } from './HealthBar'; 
 import { XpBar } from './XpBar'; 
 
 interface PokemonCardProps {
@@ -8,8 +8,10 @@ interface PokemonCardProps {
 }
 
 export const PokemonCard = ({ pokemon, animation }: PokemonCardProps) => {
-  // 1. Get the Sprite Image
-  const imgSrc = `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/${pokemon.id}.png`;
+  // 1. DYNAMIC SPRITE: Back view for player, Front view for enemy
+  const imgSrc = pokemon.isPlayer 
+    ? `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/back/${pokemon.id}.png`
+    : `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/${pokemon.id}.png`;
 
   const statusStyles: Record<string, string> = {
     burn: 'bg-red-200 text-red-800',
@@ -28,7 +30,7 @@ export const PokemonCard = ({ pokemon, animation }: PokemonCardProps) => {
         <div>
           <h2 className="font-bold text-lg capitalize">{pokemon.name}</h2>
           {pokemon.status && pokemon.status !== 'normal' && (
-            <div className={`text-xs font-bold px-1 mb-1 rounded ${statusStyles[pokemon.status]}`}>
+            <div className={`text-xs font-bold px-2 py-1 rounded ${statusStyles[pokemon.status]}`}>
               {pokemon.status.toUpperCase()}
             </div>
           )}

@@ -72,7 +72,6 @@ function App() {
         let newPlayer = { ...player };
         
         // Add XP
-        // Use '|| 0' and '|| 100' to handle potential undefined values safely
         const currentXp = newPlayer.xp || 0;
         const currentMaxXp = newPlayer.maxXp || 100;
         
@@ -139,7 +138,6 @@ function App() {
         let statusLog = '';
         if (randomMove.statusEffect && (!player.status || player.status === 'normal')) {
           if (randomMove.power === 0 || Math.random() < 0.3) {
-            // Filter out "stunned" status as it's not supported
             if (randomMove.statusEffect !== 'stunned') {
               appliedStatus = randomMove.statusEffect as 'burn' | 'poison' | 'paralyze' | 'freeze';
               statusLog = ` ${player.name} was inflicted with ${randomMove.statusEffect}!`;
@@ -226,15 +224,10 @@ function App() {
     if (!player) return;
 
     if (upgrade.stat === 'evolve') {
-      // --- EVOLUTION LOGIC ---
-      // Get the ID of the next evolution
-      // @ts-ignore - Importing EVOLUTION_MAP is needed, but we can do a safe check
+      // @ts-ignore
       const nextId = EVOLUTION_MAP ? EVOLUTION_MAP[player.id] : player.id + 1; 
-      
-      // Fetch the new form from the API
       const evolvedBase = await getRandomPokemon(nextId);
       
-      // Keep our current level and XP progress
       const currentLevel = player.level || 1;
       const scaledEvolved = scaleEnemyStats(evolvedBase, currentLevel);
 
@@ -247,7 +240,6 @@ function App() {
       
       setGameLog(prev => [...prev, `What? ${player.name} is evolving!`, `Congratulations! You evolved into ${evolvedBase.name}!`]);
     } else {
-      // --- NORMAL STAT LOGIC (Existing code) ---
       setPlayer((prev) => {
         if (!prev) return null;
         let newStats = { ...prev };
@@ -270,7 +262,6 @@ function App() {
   const handleMoveClick = (move: Move) => {
     if (!player || !enemy) return;
 
-    // 1. Pre-attack Status Check (Paralyze / Freeze)
     if (player.status === 'freeze') {
       if (Math.random() < 0.2) {
         setGameLog(prev => [...prev, `${player.name} thawed out!`]);
@@ -305,13 +296,10 @@ function App() {
     setTimeout(() => {
       setEnemyAnimation('animate-shake'); 
       
-      // 2. Apply Status to Enemy
       let appliedStatus = enemy.status;
       let statusLog = '';
       if (move.statusEffect && (!enemy.status || enemy.status === 'normal')) {
-        // 100% chance for status moves, 30% chance for side-effect moves
         if (move.power === 0 || Math.random() < 0.3) {
-          // Filter out "stunned" status as it's not supported
           if (move.statusEffect !== 'stunned') {
             appliedStatus = move.statusEffect as 'burn' | 'poison' | 'paralyze' | 'freeze';
             statusLog = ` ${enemy.name} was inflicted with ${move.statusEffect}!`;
@@ -328,7 +316,6 @@ function App() {
       if (effectiveness > 1) logMsg += " It's Super Effective!";
       if (statusLog) logMsg += statusLog;
 
-      // 3. Post-attack Status Damage (Burn / Poison)
       if (player.status === 'burn' || player.status === 'poison') {
         const tickDamage = Math.max(1, Math.floor(player.maxHp * 0.1));
         setPlayer(p => p ? { ...p, hp: Math.max(p.hp - tickDamage, 0) } : null);
@@ -347,19 +334,14 @@ function App() {
   };
 
   const handleLevelUp = (currentStats: Pokemon, overflowXp: number) => {
-    // 1. Increase Level
     const newLevel = (currentStats.level || 1) + 1;
     
-    // 2. Increase Stats (10% growth approx)
     const growthRate = 0.1; 
     const newMaxHp = Math.floor(currentStats.maxHp * (1 + growthRate));
     const newAttack = Math.floor(currentStats.attack * (1 + growthRate));
     const newSpeed = Math.floor(currentStats.speed * (1 + growthRate));
 
-    // 3. Heal fully on level up? Or just add the difference? Let's Heal Fully for that "Ding!" feeling.
     const newHp = newMaxHp; 
-
-    // 4. Increase XP Requirement (Harder to level up next time)
     const newMaxXp = Math.floor((currentStats.maxXp || 100) * 1.2);
 
     return {
@@ -369,12 +351,11 @@ function App() {
       hp: newHp,
       attack: newAttack,
       speed: newSpeed,
-      xp: overflowXp, // Carry over extra XP
+      xp: overflowXp,
       maxXp: newMaxXp
     };
   };
 
-  // RENDER
   const gameOver = player?.hp === 0 || enemy?.hp === 0;
   const winner = enemy?.hp === 0 ? 'Player' : 'Enemy';
 
@@ -382,7 +363,6 @@ function App() {
     <div className='min-h-screen w-screen bg-black text-white flex flex-col justify-center items-center font-mono'>
       
       {!isGameStarted ? (
-        /* --- TITLE SCREEN --- */
         <div className="text-center space-y-8">
           <h1 className="text-6xl font-bold text-yellow-400 tracking-tighter animate-pulse">
             POKÉ-ROGUE
@@ -403,7 +383,6 @@ function App() {
           <p className="text-slate-500 text-sm">v1.0.0 • React • Tailwind • PokeAPI</p>
         </div>
       ) : (
-        /* --- THE GAME --- */
         <div className='flex flex-col items-center gap-10 w-full max-w-4xl'>
            
            <h1 className={`text-4xl font-bold tracking-widest ${floor % 10 === 0 ? 'text-red-500 animate-pulse' : floor % 5 === 0 ? 'text-orange-400' : 'text-yellow-400'}`}>
@@ -413,10 +392,8 @@ function App() {
            {(!player || !enemy) ? (
               <h1 className="text-2xl animate-pulse">Summoning Monsters...</h1>
            ) : (
-             /* --- BATTLE CONTENT REPLACED HERE --- */
              <>
                {upgrades.length > 0 ? (
-                /* LOOT SCREEN */
                 <div className="flex flex-col items-center gap-6">
                   <h2 className="text-3xl font-bold text-yellow-400">CHOOSE YOUR REWARD</h2>
                   <div className="flex gap-4">
@@ -433,11 +410,19 @@ function App() {
                   </div>
                 </div>
               ) : (
-                /* BATTLE SCREEN */
                 <>
-                  <div className='flex gap-10'>
-                    <PokemonCard pokemon={enemy} animation={enemyAnimation} />
-                    <PokemonCard pokemon={player} animation={playerAnimation} />
+                  {/* CLASSIC ARENA LAYOUT */}
+                  <div className='w-full max-w-3xl flex flex-col p-10 rounded-3xl bg-gradient-to-b from-slate-800 to-slate-900 border-4 border-slate-700 shadow-2xl relative overflow-hidden mb-8'>
+                    
+                    {/* Enemy: Top Right */}
+                    <div className='self-end z-10'>
+                      <PokemonCard pokemon={enemy} animation={enemyAnimation} />
+                    </div>
+
+                    {/* Player: Bottom Left */}
+                    <div className='self-start z-10 -mt-12'>
+                      <PokemonCard pokemon={player} animation={playerAnimation} />
+                    </div>
                   </div>
 
                   <div className='flex flex-col items-center gap-4'>

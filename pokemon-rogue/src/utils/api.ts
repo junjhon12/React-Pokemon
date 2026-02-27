@@ -1,6 +1,7 @@
 import { type Pokemon } from '../types/pokemon';
 import { type Move } from '../types/move';
 import { type Equipment } from '../types/equipment';
+import { CUSTOM_ITEM_DATA } from '../data/items';
 
 const POKE_API_URL = 'https://pokeapi.co/api/v2/pokemon/';
 
@@ -73,26 +74,20 @@ export const fetchEquipmentFromPokeAPI = async (itemName: string): Promise<Equip
     const response = await fetch(`https://pokeapi.co/api/v2/item/${itemName}`);
     const data = await response.json();
 
-    const englishEntry = data.flavor_text_entries.find((entry: any) => entry.language.name === 'en');
-    const description = englishEntry ? englishEntry.flavor_text.replace(/\n/g, ' ') : 'A mysterious item.';
+    // Look up our custom tailored stats from the imported data file
+    const customData = CUSTOM_ITEM_DATA[itemName];
 
-    let modifiers: Partial<Record<import('../types/pokemon').StatKey, number>> = {};
-    
-    switch(itemName) {
-      case 'muscle-band': modifiers = { attack: 10 }; break;
-      case 'iron-ball': modifiers = { defense: 15, speed: -10 }; break;
-      case 'scope-lens': modifiers = { critChance: 15 }; break;
-      case 'bright-powder': modifiers = { dodge: 10 }; break;
-      case 'leftovers': modifiers = { maxHp: 20, hp: 20 }; break;
-      default: modifiers = { attack: 1, defense: 1 };
+    if (!customData) {
+      console.warn(`Item ${itemName} not found in custom dictionary!`);
+      return null;
     }
 
     return {
       id: `pokeapi-${data.id}`,
-      name: data.name.replace('-', ' '),
-      description: description,
+      name: customData.name,
+      description: customData.desc,
       spriteUrl: data.sprites.default,
-      statModifiers: modifiers
+      statModifiers: customData.stats
     };
 
   } catch (error) {

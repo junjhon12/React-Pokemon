@@ -4,6 +4,7 @@ import type { Upgrade } from '../types/upgrade';
 import type { Move } from '../types/move';
 import { getRandomPokemon, fetchEquipmentFromPokeAPI } from '../utils/api'; 
 import { scaleEnemyStats, getRandomUpgrades, getTypeEffectiveness, EVOLUTION_MAP, getEffectiveStat } from '../utils/gameLogic';
+import { ITEM_POOL } from '../data/items';
 
 export const useGameEngine = () => {
   const [player, setPlayer] = useState<Pokemon | null>(null);
@@ -85,9 +86,7 @@ export const useGameEngine = () => {
         const currentEquipCount = player?.equipment?.length || 0;
         // Keep at 1 for testing so it drops immediately!
         if (floor % 1 === 0 && currentEquipCount < 6) { 
-          const ITEM_POOL = ['muscle-band', 'iron-ball', 'scope-lens', 'bright-powder', 'leftovers'];
           const randomItemName = ITEM_POOL[Math.floor(Math.random() * ITEM_POOL.length)];
-          
           let equipment = await fetchEquipmentFromPokeAPI(randomItemName);
           
           // --- NEW: FOOLPROOF FALLBACK ---

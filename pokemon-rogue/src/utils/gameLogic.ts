@@ -1,4 +1,4 @@
-import type { Pokemon } from '../types/pokemon';
+import type { Pokemon, StatKey } from '../types/pokemon';
 import { type Upgrade } from '../types/upgrade';
 
 export const EVOLUTION_MAP: Record<number, number> = {
@@ -81,3 +81,11 @@ export const scaleEnemyStats = (basePokemon: Pokemon, floor: number): Pokemon =>
     }
   };
 };
+
+export const getEffectiveStat = (mon: Pokemon, stat: StatKey) => {
+    let baseValue = mon.stats[stat];
+    if (mon.heldItem && mon.heldItem.statModifiers[stat]) {
+      baseValue += mon.heldItem.statModifiers[stat]!;
+    }
+    return baseValue;
+  };

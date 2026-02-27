@@ -1,18 +1,14 @@
 import { PokemonCard } from './components/PokemonCard';
+import { StartScreen } from './components/StartScreen'; // NEW
+import { LootOverlay } from './components/LootOverlay'; // NEW
+import { PlayerDashboard } from './components/PlayerDashboard'; // NEW
 import { useState, useEffect } from 'react';
-import { type Pokemon, type StatKey } from './types/pokemon';
+import { type Pokemon } from './types/pokemon';
 import { getRandomPokemon, fetchEquipmentFromPokeAPI } from './utils/api'; 
 import type { Upgrade } from './types/upgrade';
 import type { Move } from './types/move';
-import { scaleEnemyStats, getRandomUpgrades, getTypeEffectiveness, EVOLUTION_MAP } from './utils/gameLogic';
+import { scaleEnemyStats, getRandomUpgrades, getTypeEffectiveness, EVOLUTION_MAP, getEffectiveStat } from './utils/gameLogic';
 import './App.css';
-
-const TYPE_SYMBOLS: Record<string, string> = {
-  normal: '⚪', fire: '🔥', water: '💧', grass: '🌿', electric: '⚡',
-  ice: '❄️', fighting: '🥊', poison: '☠️', ground: '⛰️', flying: '🦅',
-  psychic: '🔮', bug: '🐛', rock: '🪨', ghost: '👻', dragon: '🐉',
-  dark: '🌙', steel: '⚙️', fairy: '✨'
-};
 
 function App() {
   const [player, setPlayer] = useState<Pokemon | null>(null);
@@ -42,13 +38,7 @@ function App() {
     }
   }, [player?.stats.hp]);
 
-  const getEffectiveStat = (mon: Pokemon, stat: StatKey) => {
-    let baseValue = mon.stats[stat];
-    if (mon.heldItem && mon.heldItem.statModifiers[stat]) {
-      baseValue += mon.heldItem.statModifiers[stat]!;
-    }
-    return baseValue;
-  };
+  // NOTE: Remove getEffectiveStat from here, as we moved it to gameLogic.ts!
 
   const startGame = async () => {
     setIsGameStarted(true);
@@ -97,7 +87,7 @@ function App() {
       const fetchLoot = async () => {
         const baseLoot = getRandomUpgrades(2, player?.id);
 
-        if (floor % 5 === 0) {
+        if (floor % 1 === 0) {
           const ITEM_POOL = ['muscle-band', 'iron-ball', 'scope-lens', 'bright-powder', 'leftovers'];
           const randomItemName = ITEM_POOL[Math.floor(Math.random() * ITEM_POOL.length)];
           const equipment = await fetchEquipmentFromPokeAPI(randomItemName);
@@ -271,6 +261,7 @@ function App() {
     }
 
     if (upgrade.stat === 'evolve') {
+      // @ts-ignore
       const nextId = EVOLUTION_MAP ? EVOLUTION_MAP[player.id] : player.id + 1; 
       const evolvedBase = await getRandomPokemon(nextId);
       const currentLevel = player.level || 1;
@@ -287,7 +278,8 @@ function App() {
       setPlayer((prev) => {
         if (!prev) return null;
 
-        const targetStat = upgrade.stat as StatKey; 
+        // @ts-ignore
+        const targetStat = upgrade.stat; 
         const newStats = {
           ...prev.stats,
           [targetStat]: prev.stats[targetStat] + upgrade.amount
@@ -432,147 +424,20 @@ function App() {
     <div className='min-h-screen w-screen bg-black flex items-center justify-center font-mono p-4'>
       
       {!isGameStarted ? (
-        <div className="text-center space-y-8 text-white">
-          <h1 className="text-6xl font-bold text-yellow-400 tracking-tighter animate-pulse">
-            POKÉ-ROGUE
-          </h1>
-          <div className="border-4 border-slate-700 p-8 rounded-xl bg-slate-900">
-            <p className="text-slate-400 mb-2">BEST RUN</p>
-            <p className="text-4xl text-green-400 font-bold">FLOOR {highScore}</p>
-          </div>
-          <button 
-            onClick={startGame}
-            className="bg-red-600 hover:bg-red-700 text-white text-2xl font-bold py-4 px-12 rounded-full border-4 border-red-800 shadow-lg hover:scale-105 transition-all cursor-pointer"
-          >
-            START RUN
-          </button>
-        </div>
+        <StartScreen highScore={highScore} startGame={startGame} />
       ) : (
         /* --- RETRO RPG DASHBOARD LAYOUT --- */
         <div className='w-full max-w-6xl h-[800px] flex bg-white border-4 border-black rounded-lg overflow-hidden shadow-2xl'>
           
           {/* LEFT PANEL: Player Dashboard */}
-          <div className='w-[400px] bg-[#d3d3d3] flex flex-col border-r-4 border-black shrink-0 text-black'>
-            
-            {/* Top Stats Area */}
-            <div className='p-6 flex-1'>
-              {player && (
-                <>
-                  <div className='space-y-2 text-sm font-bold border-b-4 border-black pb-4 mb-4'>
-                    <div className='flex justify-between'>
-                      <span className='text-red-700'>❤️ Health</span>
-                      <span>{player.stats.hp}/{player.stats.maxHp}</span>
-                    </div>
-                    <div className='flex justify-between'>
-                      <span className='text-orange-700'>👊 Attack</span>
-                      <span>{getEffectiveStat(player, 'attack')}</span>
-                    </div>
-                    <div className='flex justify-between'>
-                      <span className='text-blue-700'>🛡️ Defense</span>
-                      <span>{getEffectiveStat(player, 'defense')}</span>
-                    </div>
-                    <div className='flex justify-between'>
-                      <span className='text-yellow-600'>⚡ Speed</span>
-                      <span>{getEffectiveStat(player, 'speed')}</span>
-                    </div>
-                    <div className='flex justify-between text-gray-600 pt-2 border-t border-gray-400'>
-                      <span>🎯 Crit: {getEffectiveStat(player, 'critChance')}%</span>
-                      <span>💨 Dodge: {getEffectiveStat(player, 'dodge')}%</span>
-                    </div>
-                  </div>
-
-                  {/* SAO Style Equipment Menu */}
-                  <div className='mt-6 bg-white border-2 border-gray-300 rounded shadow-md flex flex-col relative overflow-hidden font-sans'>
-                    <div className='p-2 flex justify-center border-b border-gray-100'>
-                       <h3 className='text-gray-400 text-[10px] font-bold uppercase'>
-                        <h2 className='text-sm uppercase flex justify-between items-center'>
-                          <span>{player.name}</span>
-                          <span className="flex gap-2 text-sm drop-shadow-sm">
-                            {player.types.map(t => (
-                              <span key={t} title={t.toUpperCase()}>{TYPE_SYMBOLS[t] || '⚪'}</span>
-                            ))}
-                          </span>
-                        </h2>
-                       </h3>
-                    </div>
-                    
-                    {/* Central Display Area */}
-                    <div className='relative h-48 flex items-center justify-center bg-gradient-to-b from-white to-[#f4f4f4]'>
-                      <img 
-                        src={`https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/${player.id}.png`}
-                        alt="Avatar Silhouette"
-                        className="w-32 h-32 object-contain opacity-40 brightness-0 pointer-events-none" 
-                      />
-                      
-                      <div className='absolute top-4 w-7 h-7 rounded-full border-[3px] border-gray-200 bg-gray-500 hover:bg-gray-400 shadow-sm cursor-pointer'></div>
-                      <div className='absolute top-10 right-14 w-7 h-7 rounded-full border-[3px] border-gray-200 bg-gray-500 hover:bg-gray-400 shadow-sm cursor-pointer'></div>
-                      <div className='absolute bottom-10 right-14 w-7 h-7 rounded-full border-[3px] border-gray-200 bg-gray-500 hover:bg-gray-400 shadow-sm cursor-pointer'></div>
-                      
-                      {/* Active/Selected Node (Orange) */}
-                      <div className='absolute bottom-4 w-10 h-10 rounded-full border-[3px] border-gray-200 bg-white shadow-md cursor-pointer flex items-center justify-center overflow-hidden'>
-                         {player.heldItem ? (
-                           <img src={player.heldItem.spriteUrl} alt="held item" className="w-8 h-8 object-contain drop-shadow-sm" />
-                         ) : (
-                           <div className="w-3 h-3 rounded-full bg-orange-400"></div>
-                         )}
-                      </div>
-                      
-                      <div className='absolute bottom-10 left-14 w-7 h-7 rounded-full border-[3px] border-gray-200 bg-gray-500 hover:bg-gray-400 shadow-sm cursor-pointer'></div>
-                      <div className='absolute top-10 left-14 w-7 h-7 rounded-full border-[3px] border-gray-200 bg-gray-500 hover:bg-gray-400 shadow-sm cursor-pointer'></div>
-                    </div>
-
-                    {/* SAO Style Detail Pane */}
-                    <div className='bg-[#e9ecef] p-3 border-t border-gray-200'>
-                      <div className='flex items-center gap-2 mb-1'>
-                        <div className='bg-gray-500 text-white rounded-full w-4 h-4 flex items-center justify-center text-[10px] font-bold'>✖</div>
-                        <span className='font-bold text-gray-700 text-sm'>Held Item</span>
-                      </div>
-                      <div className='pl-6 text-xs text-gray-500 space-y-1 min-h-[50px]'>
-                        {player.heldItem ? (
-                          <>
-                            <p className="font-bold text-black uppercase">{player.heldItem.name}</p>
-                            <p className="leading-tight">{player.heldItem.description}</p>
-                            <p className="mt-1 font-bold">
-                              Bonuses: <span className="text-orange-500">
-                                {Object.entries(player.heldItem.statModifiers).map(([stat, val]) => `${stat.toUpperCase()} ${val! > 0 ? '+' : ''}${val}`).join(', ')}
-                              </span>
-                            </p>
-                          </>
-                        ) : (
-                          <>
-                            <p>No item currently equipped.</p>
-                            <p>Stat Bonus: <span className="text-orange-400">0.00</span></p>
-                          </>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                </>
-              )}
-            </div>
-
-            {/* Bottom Left Moves Area */}
-            <div className='h-[250px] bg-[#1a1a24] p-4 flex flex-col justify-end border-t-4 border-black'>
-              {(!player || !enemy) ? null : playerTurn ? (
-                <div className="grid grid-cols-2 gap-2 h-full">
-                  {player.moves?.map((move, index) => (
-                    <button
-                      key={index}
-                      onClick={() => handleMoveClick(move)}
-                      className="bg-transparent border-2 border-white hover:bg-white hover:text-black text-white font-bold uppercase text-sm rounded transition-all active:scale-95 flex flex-col items-center justify-center p-2 cursor-pointer"
-                    >
-                      <span className="text-lg mb-1 text-center leading-tight">{move.name}</span>
-                      <span className="text-[10px] opacity-70">{move.type}</span>
-                    </button>
-                  ))}
-                </div>
-              ) : (
-                <div className="h-full flex items-center justify-center">
-                  <p className='text-red-500 font-bold text-xl animate-pulse'>ENEMY TURN</p>
-                </div>
-              )}
-            </div>
-          </div>
+          {player && (
+            <PlayerDashboard 
+              player={player} 
+              enemy={enemy} 
+              playerTurn={playerTurn} 
+              handleMoveClick={handleMoveClick} 
+            />
+          )}
 
           {/* RIGHT PANEL: The Arena & Logs */}
           <div className='flex-1 flex flex-col relative bg-[#1a1a24]'>
@@ -596,30 +461,8 @@ function App() {
               </div>
 
               {/* OVERLAYS: Loot & Game Over */}
-              {upgrades.length > 0 && (
-                <div className="absolute inset-0 bg-black/90 z-50 flex flex-col items-center justify-center">
-                  <h2 className="text-3xl font-black text-yellow-400 mb-8 drop-shadow-md">CHOOSE REWARD</h2>
-                  <div className="flex gap-4">
-                    {upgrades.map((u) => (
-                      <button
-                        key={u.id}
-                        onClick={() => handleSelectUpgrade(u)}
-                        className={`bg-gray-800 border-4 ${u.stat === 'equipment' ? 'border-purple-500 shadow-[0_0_15px_rgba(168,85,247,0.5)]' : 'border-yellow-500'} p-4 rounded-xl hover:bg-gray-700 transition-all text-white w-52 flex flex-col items-center cursor-pointer`}
-                      >
-                        {/* Dynamically render the equipment sprite if the payload exists */}
-                        {u.equipment && (
-                          <div className="bg-white/10 p-2 rounded-full mb-3">
-                            <img src={u.equipment.spriteUrl} alt={u.name} className="w-12 h-12 object-contain pixelated drop-shadow-xl" />
-                          </div>
-                        )}
-                        <span className="text-xl font-bold text-center uppercase">{u.name}</span>
-                        {u.stat === 'equipment' && <span className="text-[10px] text-purple-400 tracking-widest font-black uppercase mt-1">Held Item</span>}
-                        <span className="text-xs text-gray-300 text-center mt-2">{u.description}</span>
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              )}
+              <LootOverlay upgrades={upgrades} handleSelectUpgrade={handleSelectUpgrade} />
+
               {gameOver && upgrades.length === 0 && (
                 <div className='absolute inset-0 bg-black/90 z-50 flex flex-col items-center justify-center'>
                   <h2 className='text-6xl font-black mb-6 text-yellow-400'>

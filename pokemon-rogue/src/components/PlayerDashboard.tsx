@@ -50,7 +50,7 @@ export const PlayerDashboard = ({ player, enemy, playerTurn, handleMoveClick }: 
           <div className='h-2 w-full bg-red-600 border-b-4 border-black'></div>
           <div className='p-2 flex justify-between items-center border-b-4 border-black bg-slate-800'>
              <h3 className='text-gray-300 font-bold uppercase tracking-widest text-xs'>
-                SYS_EQUIP
+                EQUIPMENT
              </h3>
              {player.equipment && player.equipment.length > 0 && (
                <span className="text-[10px] text-green-400 font-bold animate-pulse">
@@ -86,16 +86,16 @@ export const PlayerDashboard = ({ player, enemy, playerTurn, handleMoveClick }: 
           <div className='bg-slate-800 p-3 border-t-4 border-black z-30 relative'>
             <div className='flex items-center gap-2 mb-2'>
               <div className='bg-purple-600 text-white rounded-sm border-2 border-black w-5 h-5 flex items-center justify-center text-[10px] font-bold'>✖</div>
-              <span className='font-bold text-gray-200 text-sm tracking-widest'>SYS_INVENTORY</span>
+              <span className='font-bold text-gray-200 text-sm tracking-widest'>INVENTORY</span>
             </div>
             <div className='pl-7 text-xs text-gray-400 space-y-1 min-h-[50px]'>
               {player.equipment && player.equipment.length > 0 ? (
                 <>
                   <p className="font-bold text-purple-400 uppercase text-[10px] drop-shadow-sm leading-tight line-clamp-2">
-                    {player.equipment.map(e => e.name).join(' // ')}
+                    {player.equipment.map(e => e.name).join(' ||')}
                   </p>
                   <p className="mt-2 font-bold text-gray-300">
-                    TOTAL_BONUS: <span className="text-green-400">
+                    <span className="text-green-400">
                       {/* NEW: Calculate Total Stats on the fly for the UI */}
                       {Object.entries(
                         player.equipment.reduce((acc, curr) => {

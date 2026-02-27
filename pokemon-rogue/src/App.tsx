@@ -1,7 +1,7 @@
 import { PokemonCard } from './components/PokemonCard';
 import { useState, useEffect } from 'react';
 import { type Pokemon, type StatKey } from './types/pokemon';
-import { getRandomPokemon } from './utils/api'; 
+import { getRandomPokemon, fetchEquipmentFromPokeAPI } from './utils/api'; 
 import type { Upgrade } from './types/upgrade';
 import type { Move } from './types/move';
 import { scaleEnemyStats, getRandomUpgrades, getTypeEffectiveness, EVOLUTION_MAP } from './utils/gameLogic';
@@ -41,6 +41,14 @@ function App() {
       }
     }
   }, [player?.stats.hp]);
+
+  const getEffectiveStat = (mon: Pokemon, stat: StatKey) => {
+    let baseValue = mon.stats[stat];
+    if (mon.heldItem && mon.heldItem.statModifiers[stat]) {
+      baseValue += mon.heldItem.statModifiers[stat]!;
+    }
+    return baseValue;
+  };
 
   const startGame = async () => {
     setIsGameStarted(true);
@@ -85,8 +93,34 @@ function App() {
         }
         setPlayer(newPlayer);
       }
-      const loot = getRandomUpgrades(3, player?.id);
-      setUpgrades(loot);
+      
+      const fetchLoot = async () => {
+        const baseLoot = getRandomUpgrades(2, player?.id);
+
+        if (floor % 5 === 0) {
+          const ITEM_POOL = ['muscle-band', 'iron-ball', 'scope-lens', 'bright-powder', 'leftovers'];
+          const randomItemName = ITEM_POOL[Math.floor(Math.random() * ITEM_POOL.length)];
+          const equipment = await fetchEquipmentFromPokeAPI(randomItemName);
+          
+          if (equipment) {
+            baseLoot.push({
+              id: equipment.id,
+              name: equipment.name,
+              description: equipment.description,
+              stat: 'equipment',
+              amount: 0,
+              equipment: equipment
+            });
+          }
+        } else {
+          const extra = getRandomUpgrades(1)[0];
+          extra.id = Math.random().toString();
+          baseLoot.push(extra);
+        }
+        setUpgrades(baseLoot);
+      };
+
+      fetchLoot();
     }
   }, [enemy?.stats.hp]);
 
@@ -118,9 +152,26 @@ function App() {
       setEnemyAnimation('animate-lunge-left');
 
       setTimeout(() => {
+        const playerDodge = getEffectiveStat(player, 'dodge');
+        if ((Math.random() * 100) < playerDodge) {
+          setGameLog((prev) => [...prev, `${player.name} dodged the attack!`]);
+          setEnemyAnimation('');
+          setPlayerAnimation('');
+          setPlayerTurn(true);
+          return;
+        }
+
+        const enemyCrit = getEffectiveStat(enemy, 'critChance');
+        const isCrit = (Math.random() * 100) < enemyCrit;
+        const critMultiplier = isCrit ? 1.5 : 1;
+
         const effectiveness = getTypeEffectiveness(randomMove.type, player.types);
-        const baseDamage = (enemy.stats.attack * randomMove.power) / 50;
-        const finalDamage = Math.floor(baseDamage * effectiveness);
+        
+        const playerDef = getEffectiveStat(player, 'defense');
+        const defenseMitigation = 100 / (100 + playerDef);
+        const enemyAtk = getEffectiveStat(enemy, 'attack');
+        const baseDamage = (enemyAtk * randomMove.power) / 50;
+        const finalDamage = Math.max(1, Math.floor(baseDamage * effectiveness * defenseMitigation * critMultiplier));
 
         setPlayerAnimation('animate-shake');
         
@@ -141,6 +192,7 @@ function App() {
         });
 
         let logMsg = `${enemy.name} used ${randomMove.name} for ${finalDamage} damage!`;
+        if (isCrit) logMsg += " A Critical Hit!";
         if (effectiveness > 1) logMsg += " It's Super Effective!";
         if (statusLog) logMsg += statusLog;
 
@@ -209,6 +261,15 @@ function App() {
 
   const handleSelectUpgrade = async (upgrade: Upgrade) => {
     if (!player) return;
+
+    if (upgrade.stat === 'equipment' && upgrade.equipment) {
+      setPlayer({ ...player, heldItem: upgrade.equipment });
+      setGameLog(prev => [...prev, `Equipped ${upgrade.equipment!.name}!`, `Stat bonuses applied dynamically.`]);
+      setUpgrades([]);
+      handleNextFloor();
+      return;
+    }
+
     if (upgrade.stat === 'evolve') {
       const nextId = EVOLUTION_MAP ? EVOLUTION_MAP[player.id] : player.id + 1; 
       const evolvedBase = await getRandomPokemon(nextId);
@@ -218,22 +279,20 @@ function App() {
         ...scaledEvolved,
         isPlayer: true,
         xp: player.xp,
-        maxXp: player.maxXp
+        maxXp: player.maxXp,
+        heldItem: player.heldItem
       });
       setGameLog(prev => [...prev, `What? ${player.name} is evolving!`, `Congratulations! You evolved into ${evolvedBase.name}!`]);
-    }else {
+    } else {
       setPlayer((prev) => {
         if (!prev) return null;
 
-        // We use the StatKey to safely update the stats object
         const targetStat = upgrade.stat as StatKey; 
-        
         const newStats = {
           ...prev.stats,
           [targetStat]: prev.stats[targetStat] + upgrade.amount
         };
 
-        // Special logic for HP to ensure it doesn't exceed MaxHP
         if (targetStat === 'hp') {
           newStats.hp = Math.min(newStats.hp, prev.stats.maxHp);
         }
@@ -275,11 +334,27 @@ function App() {
       return;
     }
 
-    const effectiveness = getTypeEffectiveness(move.type, enemy.types);
-    const baseDamage = (player.stats.attack * move.power) / 50;
-    const finalDamage = Math.floor(baseDamage * effectiveness);
-
     setTimeout(() => {
+      const enemyDodge = getEffectiveStat(enemy, 'dodge');
+      if ((Math.random() * 100) < enemyDodge) {
+        setGameLog((prev) => [...prev, `${enemy.name} dodged the attack!`]);
+        setPlayerAnimation(''); 
+        setPlayerTurn(false);
+        return;
+      }
+
+      const playerCrit = getEffectiveStat(player, 'critChance');
+      const isCrit = (Math.random() * 100) < playerCrit;
+      const critMultiplier = isCrit ? 1.5 : 1; 
+
+      const effectiveness = getTypeEffectiveness(move.type, enemy.types);
+      
+      const enemyDef = getEffectiveStat(enemy, 'defense');
+      const defenseMitigation = 100 / (100 + enemyDef);
+      const playerAtk = getEffectiveStat(player, 'attack');
+      const baseDamage = (playerAtk * move.power) / 50;
+      const finalDamage = Math.max(1, Math.floor(baseDamage * effectiveness * defenseMitigation * critMultiplier));
+
       setEnemyAnimation('animate-shake'); 
       
       let appliedStatus = enemy.status;
@@ -306,6 +381,7 @@ function App() {
       });
 
       let logMsg = `${player.name} used ${move.name} for ${finalDamage} damage!`;
+      if (isCrit) logMsg += " A Critical Hit!";
       if (effectiveness > 1) logMsg += " It's Super Effective!";
       if (statusLog) logMsg += statusLog;
 
@@ -382,26 +458,32 @@ function App() {
             <div className='p-6 flex-1'>
               {player && (
                 <>
-                  <div className='space-y-2 text-lg font-bold border-b-4 border-black pb-4 mb-4'>
+                  <div className='space-y-2 text-sm font-bold border-b-4 border-black pb-4 mb-4'>
                     <div className='flex justify-between'>
                       <span className='text-red-700'>❤️ Health</span>
                       <span>{player.stats.hp}/{player.stats.maxHp}</span>
                     </div>
                     <div className='flex justify-between'>
                       <span className='text-orange-700'>👊 Attack</span>
-                      <span>{player.stats.attack}</span>
+                      <span>{getEffectiveStat(player, 'attack')}</span>
                     </div>
                     <div className='flex justify-between'>
-                      <span className='text-blue-700'>⚡ Speed</span>
-                      <span>{player.stats.speed}</span>
+                      <span className='text-blue-700'>🛡️ Defense</span>
+                      <span>{getEffectiveStat(player, 'defense')}</span>
+                    </div>
+                    <div className='flex justify-between'>
+                      <span className='text-yellow-600'>⚡ Speed</span>
+                      <span>{getEffectiveStat(player, 'speed')}</span>
+                    </div>
+                    <div className='flex justify-between text-gray-600 pt-2 border-t border-gray-400'>
+                      <span>🎯 Crit: {getEffectiveStat(player, 'critChance')}%</span>
+                      <span>💨 Dodge: {getEffectiveStat(player, 'dodge')}%</span>
                     </div>
                   </div>
 
-                  {/* --- NEW: SAO Style Equipment Menu --- */}
+                  {/* SAO Style Equipment Menu */}
                   <div className='mt-6 bg-white border-2 border-gray-300 rounded shadow-md flex flex-col relative overflow-hidden font-sans'>
-                    {/* Header line mimicking SAO menu accent */}
                     <div className='p-2 flex justify-center border-b border-gray-100'>
-
                        <h3 className='text-gray-400 text-[10px] font-bold uppercase'>
                         <h2 className='text-sm uppercase flex justify-between items-center'>
                           <span>{player.name}</span>
@@ -412,27 +494,27 @@ function App() {
                           </span>
                         </h2>
                        </h3>
-
                     </div>
                     
                     {/* Central Display Area */}
                     <div className='relative h-48 flex items-center justify-center bg-gradient-to-b from-white to-[#f4f4f4]'>
-                      
-                      {/* Character Sprite Hologram */}
                       <img 
                         src={`https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/${player.id}.png`}
                         alt="Avatar Silhouette"
                         className="w-32 h-32 object-contain opacity-40 brightness-0 pointer-events-none" 
                       />
                       
-                      {/* Equipment Nodes (Orbital positioning) */}
                       <div className='absolute top-4 w-7 h-7 rounded-full border-[3px] border-gray-200 bg-gray-500 hover:bg-gray-400 shadow-sm cursor-pointer'></div>
                       <div className='absolute top-10 right-14 w-7 h-7 rounded-full border-[3px] border-gray-200 bg-gray-500 hover:bg-gray-400 shadow-sm cursor-pointer'></div>
                       <div className='absolute bottom-10 right-14 w-7 h-7 rounded-full border-[3px] border-gray-200 bg-gray-500 hover:bg-gray-400 shadow-sm cursor-pointer'></div>
                       
                       {/* Active/Selected Node (Orange) */}
-                      <div className='absolute bottom-4 w-7 h-7 rounded-full border-[3px] border-gray-200 bg-white shadow-md cursor-pointer flex items-center justify-center'>
-                         <div className="w-3 h-3 rounded-full bg-orange-400"></div>
+                      <div className='absolute bottom-4 w-10 h-10 rounded-full border-[3px] border-gray-200 bg-white shadow-md cursor-pointer flex items-center justify-center overflow-hidden'>
+                         {player.heldItem ? (
+                           <img src={player.heldItem.spriteUrl} alt="held item" className="w-8 h-8 object-contain drop-shadow-sm" />
+                         ) : (
+                           <div className="w-3 h-3 rounded-full bg-orange-400"></div>
+                         )}
                       </div>
                       
                       <div className='absolute bottom-10 left-14 w-7 h-7 rounded-full border-[3px] border-gray-200 bg-gray-500 hover:bg-gray-400 shadow-sm cursor-pointer'></div>
@@ -445,9 +527,23 @@ function App() {
                         <div className='bg-gray-500 text-white rounded-full w-4 h-4 flex items-center justify-center text-[10px] font-bold'>✖</div>
                         <span className='font-bold text-gray-700 text-sm'>Held Item</span>
                       </div>
-                      <div className='pl-6 text-xs text-gray-500 space-y-1'>
-                        <p>No item currently equipped.</p>
-                        <p>Stat Bonus: <span className="text-orange-400">0.00</span></p>
+                      <div className='pl-6 text-xs text-gray-500 space-y-1 min-h-[50px]'>
+                        {player.heldItem ? (
+                          <>
+                            <p className="font-bold text-black uppercase">{player.heldItem.name}</p>
+                            <p className="leading-tight">{player.heldItem.description}</p>
+                            <p className="mt-1 font-bold">
+                              Bonuses: <span className="text-orange-500">
+                                {Object.entries(player.heldItem.statModifiers).map(([stat, val]) => `${stat.toUpperCase()} ${val! > 0 ? '+' : ''}${val}`).join(', ')}
+                              </span>
+                            </p>
+                          </>
+                        ) : (
+                          <>
+                            <p>No item currently equipped.</p>
+                            <p>Stat Bonus: <span className="text-orange-400">0.00</span></p>
+                          </>
+                        )}
                       </div>
                     </div>
                   </div>
@@ -502,15 +598,22 @@ function App() {
               {/* OVERLAYS: Loot & Game Over */}
               {upgrades.length > 0 && (
                 <div className="absolute inset-0 bg-black/90 z-50 flex flex-col items-center justify-center">
-                  <h2 className="text-3xl font-black text-yellow-400 mb-8">CHOOSE REWARD</h2>
+                  <h2 className="text-3xl font-black text-yellow-400 mb-8 drop-shadow-md">CHOOSE REWARD</h2>
                   <div className="flex gap-4">
                     {upgrades.map((u) => (
                       <button
                         key={u.id}
                         onClick={() => handleSelectUpgrade(u)}
-                        className="bg-gray-800 border-2 border-yellow-500 p-4 rounded-xl hover:bg-gray-700 transition-all text-white w-48 flex flex-col items-center cursor-pointer"
+                        className={`bg-gray-800 border-4 ${u.stat === 'equipment' ? 'border-purple-500 shadow-[0_0_15px_rgba(168,85,247,0.5)]' : 'border-yellow-500'} p-4 rounded-xl hover:bg-gray-700 transition-all text-white w-52 flex flex-col items-center cursor-pointer`}
                       >
-                        <span className="text-xl font-bold text-center">{u.name}</span>
+                        {/* Dynamically render the equipment sprite if the payload exists */}
+                        {u.equipment && (
+                          <div className="bg-white/10 p-2 rounded-full mb-3">
+                            <img src={u.equipment.spriteUrl} alt={u.name} className="w-12 h-12 object-contain pixelated drop-shadow-xl" />
+                          </div>
+                        )}
+                        <span className="text-xl font-bold text-center uppercase">{u.name}</span>
+                        {u.stat === 'equipment' && <span className="text-[10px] text-purple-400 tracking-widest font-black uppercase mt-1">Held Item</span>}
                         <span className="text-xs text-gray-300 text-center mt-2">{u.description}</span>
                       </button>
                     ))}

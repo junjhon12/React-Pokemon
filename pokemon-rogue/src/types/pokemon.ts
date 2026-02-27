@@ -14,5 +14,5 @@ export interface Pokemon {
     xp?: number;
     maxXp?: number;
     status?: 'normal' | 'burn' | 'poison' | 'paralyze' | 'freeze';
-    heldItem?: Equipment;
+    equipment?: Equipment[];
 }

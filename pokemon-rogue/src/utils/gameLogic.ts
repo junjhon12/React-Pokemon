@@ -84,8 +84,12 @@ export const scaleEnemyStats = (basePokemon: Pokemon, floor: number): Pokemon =>
 
 export const getEffectiveStat = (mon: Pokemon, stat: StatKey) => {
     let baseValue = mon.stats[stat];
-    if (mon.heldItem && mon.heldItem.statModifiers[stat]) {
-      baseValue += mon.heldItem.statModifiers[stat]!;
+    if (mon.equipment && mon.equipment.length > 0) {
+      mon.equipment.forEach(item => {
+        if (item.statModifiers[stat]) {
+          baseValue += item.statModifiers[stat]!;
+        }
+      });
     }
     return baseValue;
   };

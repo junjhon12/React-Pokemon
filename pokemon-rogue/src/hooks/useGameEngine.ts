@@ -82,9 +82,9 @@ export const useGameEngine = () => {
       
       const fetchLoot = async () => {
         const baseLoot = getRandomUpgrades(2, player?.id);
-
+        const currentEquipCount = player?.equipment?.length || 0;
         // Keep at 1 for testing so it drops immediately!
-        if (floor % 1 === 0) {
+        if (floor % 1 === 0 && currentEquipCount < 6) { 
           const ITEM_POOL = ['muscle-band', 'iron-ball', 'scope-lens', 'bright-powder', 'leftovers'];
           const randomItemName = ITEM_POOL[Math.floor(Math.random() * ITEM_POOL.length)];
           
@@ -267,7 +267,8 @@ export const useGameEngine = () => {
     if (!player) return;
 
     if (upgrade.stat === 'equipment' && upgrade.equipment) {
-      setPlayer({ ...player, heldItem: upgrade.equipment });
+      const currentEquip = player.equipment || [];
+      setPlayer({ ...player, equipment: [...currentEquip, upgrade.equipment] });
       setGameLog(prev => [...prev, `Equipped ${upgrade.equipment!.name}!`, `Stat bonuses applied dynamically.`]);
       setUpgrades([]);
       handleNextFloor();
@@ -284,7 +285,7 @@ export const useGameEngine = () => {
         isPlayer: true,
         xp: player.xp,
         maxXp: player.maxXp,
-        heldItem: player.heldItem
+        equipment: player.equipment 
       });
       setGameLog(prev => [...prev, `What? ${player.name} is evolving!`, `Congratulations! You evolved into ${evolvedBase.name}!`]);
     } else {

@@ -3,6 +3,7 @@ import { StartScreen } from './components/StartScreen';
 import { LootOverlay } from './components/LootOverlay'; 
 import { PlayerDashboard } from './components/PlayerDashboard'; 
 import { useGameEngine } from './hooks/useGameEngine';
+import { useState, useEffect, useRef } from 'react';
 import './App.css';
 
 function App() {
@@ -11,8 +12,11 @@ function App() {
     playerAnimation, enemyAnimation, isGameStarted, highScore,
     startGame, handleMoveClick, handleSelectUpgrade, setIsGameStarted,
     gameOver, winner
-  } = useGameEngine(); // <-- This line replaces 400 lines of code!
-
+  } = useGameEngine();
+  const logEndRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    logEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [gameLog]);
   return (
     <div className='min-h-screen w-screen bg-black flex items-center justify-center font-mono p-4'>
       
@@ -51,6 +55,7 @@ function App() {
                 {gameLog.map((log, i) => (
                   <p key={i} className="mb-1">{log}</p>
                 ))}
+                <div ref={logEndRef} />
               </div>
 
               {/* OVERLAYS: Loot & Game Over */}

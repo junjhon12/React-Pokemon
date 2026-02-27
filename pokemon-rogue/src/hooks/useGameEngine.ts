@@ -83,27 +83,44 @@ export const useGameEngine = () => {
       const fetchLoot = async () => {
         const baseLoot = getRandomUpgrades(2, player?.id);
 
-        if (floor % 1 === 0) { // Keep at 1 for testing
+        // Keep at 1 for testing so it drops immediately!
+        if (floor % 1 === 0) {
           const ITEM_POOL = ['muscle-band', 'iron-ball', 'scope-lens', 'bright-powder', 'leftovers'];
           const randomItemName = ITEM_POOL[Math.floor(Math.random() * ITEM_POOL.length)];
-          const equipment = await fetchEquipmentFromPokeAPI(randomItemName);
           
-          if (equipment) {
-            baseLoot.push({
-              id: equipment.id,
-              name: equipment.name,
-              description: equipment.description,
-              stat: 'equipment',
-              amount: 0,
-              equipment: equipment
-            });
+          let equipment = await fetchEquipmentFromPokeAPI(randomItemName);
+          
+          // --- NEW: FOOLPROOF FALLBACK ---
+          // If the PokeAPI blocks the request or fails, we manually build the item
+          // so that the game doesn't break and you still get your loot.
+          if (!equipment) {
+            console.warn("PokeAPI failed to fetch item. Using local fallback.");
+            equipment = {
+              id: `local-${randomItemName}`,
+              name: randomItemName.replace('-', ' ').toUpperCase(),
+              description: 'A powerful held item generated locally.',
+              spriteUrl: 'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/items/master-ball.png',
+              statModifiers: { attack: 10, defense: 10, maxHp: 20 }
+            };
           }
+
+          baseLoot.push({
+            id: equipment.id,
+            name: equipment.name,
+            description: equipment.description,
+            stat: 'equipment',
+            amount: 0,
+            equipment: equipment
+          });
+          
         } else {
           const extra = getRandomUpgrades(1)[0];
           extra.id = Math.random().toString();
           baseLoot.push(extra);
         }
-        setUpgrades(baseLoot);
+        
+        // Spread into a new array to guarantee React triggers a re-render
+        setUpgrades([...baseLoot]);
       };
 
       fetchLoot();

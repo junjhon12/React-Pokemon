@@ -1,5 +1,6 @@
 import { type Pokemon } from '../types/pokemon';
 import { type Move } from '../types/move';
+import { type Equipment } from '../types/equipment';
 
 const POKE_API_URL = 'https://pokeapi.co/api/v2/pokemon/';
 
@@ -67,4 +68,41 @@ export const getRandomPokemon = async (id: number): Promise<Pokemon> => {
     maxXp: 100,
     status: 'normal' // Added to match interface
   };
+};
+
+export const fetchEquipmentFromPokeAPI = async (itemName: string): Promise<Equipment | null> => {
+  try {
+    const response = await fetch(`https://pokeapi.co/api/v2/item/${itemName}`);
+    const data = await response.json();
+
+    // Find the English description
+    const englishEntry = data.flavor_text_entries.find((entry: any) => entry.language.name === 'en');
+    const description = englishEntry ? englishEntry.flavor_text.replace(/\n/g, ' ') : 'A mysterious item.';
+
+    // MAP SPECIFIC ITEMS TO ROGUELIKE STATS
+    // Since PokeAPI items don't have explicit +10 Attack stats, we assign them here.
+    let modifiers: Partial<Record<import('../types/pokemon').StatKey, number>> = {};
+    
+    switch(itemName) {
+      case 'muscle-band': modifiers = { attack: 10 }; break;
+      case 'iron-ball': modifiers = { defense: 15, speed: -10 }; break;
+      case 'scope-lens': modifiers = { critChance: 15 }; break;
+      case 'bright-powder': modifiers = { dodge: 10 }; break;
+      case 'leftovers': modifiers = { maxHp: 20, hp: 20 }; break;
+      default: modifiers = { attack: 1, defense: 1 }; // Fallback
+    }
+
+    // Return the data mapped exactly to OUR generic interface
+    return {
+      id: `pokeapi-${data.id}`,
+      name: data.name.replace('-', ' '),
+      description: description,
+      spriteUrl: data.sprites.default,
+      statModifiers: modifiers
+    };
+
+  } catch (error) {
+    console.error("Error fetching item from PokeAPI:", error);
+    return null;
+  }
 };

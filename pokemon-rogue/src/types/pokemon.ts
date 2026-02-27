@@ -1,7 +1,8 @@
 import { type Move } from './move';
+import { type Equipment } from './equipment';
 
-// Define the valid stat keys as a literal type
-export type StatKey = 'hp' | 'attack' | 'speed' | 'maxHp';
+
+export type StatKey = 'hp' | 'attack' | 'speed' | 'maxHp' | 'defense' | 'critChance' | 'dodge';
 
 export interface Pokemon {
     id: number;
@@ -15,4 +16,5 @@ export interface Pokemon {
     xp?: number;
     maxXp?: number;
     status?: 'normal' | 'burn' | 'poison' | 'paralyze' | 'freeze';
+    heldItem?: Equipment;
 }

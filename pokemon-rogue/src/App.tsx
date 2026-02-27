@@ -75,24 +75,38 @@ function App() {
               {/* SPRITES AND FLOATING INFO BARS */}
               {player && enemy && (
                 <>
-                  {/* Enemy (Top Right) */}
-                  <div className={`absolute top-40 right-10 flex items-center gap-4 z-10 ${enemyAnimation}`}>
+                  {/* --- ENEMY SIDE --- */}
+                  {/* Enemy Info Card (Top Left) */}
+                  <div className="absolute top-40 left-10 z-30">
                     <PokemonCard pokemon={enemy} />
+                  </div>
+                  
+                  {/* Enemy Sprite (Top Right) */}
+                  <div className={`absolute top-30 right-10 flex flex-col items-center justify-end z-10 ${enemyAnimation}`}>
                     <img 
                       src={`https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/${enemy.id}.png`}
                       alt={enemy.name}
-                      className="w-48 h-48 pixelated drop-shadow-xl"
+                      className="w-48 h-48 pixelated drop-shadow-2xl relative z-10"
                     />
+                    {/* Ground Shadow */}
+                    <div className="w-32 h-6 bg-black/20 rounded-[100%] absolute bottom-4 blur-sm z-0"></div>
                   </div>
 
-                  {/* Player (Bottom Left) */}
-                  <div className={`absolute bottom-10 left-10 flex items-center gap-4 z-20 ${playerAnimation}`}>
+                  {/* --- PLAYER SIDE --- */}
+                  {/* Player Info Card (Bottom Right) */}
+                  <div className="absolute bottom-30 right-10 z-30">
+                    <PokemonCard pokemon={player} />
+                  </div>
+
+                  {/* Player Sprite (Bottom Left) */}
+                  <div className={`absolute bottom-10 left-20 flex flex-col items-center justify-end z-20 ${playerAnimation}`}>
                     <img 
                       src={`https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/back/${player.id}.png`}
                       alt={player.name}
-                      className="w-56 h-56 pixelated drop-shadow-xl"
+                      className="w-56 h-56 pixelated drop-shadow-2xl relative z-10"
                     />
-                    <PokemonCard pokemon={player} />
+                    {/* Ground Shadow */}
+                    <div className="w-40 h-8 bg-black/20 rounded-[100%] absolute bottom-2 blur-sm z-0"></div>
                   </div>
                 </>
               )}

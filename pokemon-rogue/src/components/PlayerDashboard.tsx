@@ -44,65 +44,72 @@ export const PlayerDashboard = ({ player, enemy, playerTurn, handleMoveClick }: 
           </div>
         </div>
 
-        {/* SAO Style Equipment Menu */}
-        <div className='mt-6 bg-white border-2 border-gray-300 rounded shadow-md flex flex-col relative overflow-hidden font-sans'>
-          <div className='p-2 flex justify-center border-b border-gray-100'>
-             <h2 className='text-sm uppercase flex justify-between items-center w-full px-2'>
-                <span>{player.name}</span>
-                <span className="flex gap-2 text-sm drop-shadow-sm">
-                  {player.types.map(t => (
-                    <span key={t} title={t.toUpperCase()}>{TYPE_SYMBOLS[t] || '⚪'}</span>
-                  ))}
-                </span>
-             </h2>
+        {/* RETRO SAO-STYLE EQUIPMENT MENU */}
+        <div className='mt-6 bg-slate-900 border-4 border-black shadow-[4px_4px_0_0_rgba(0,0,0,1)] flex flex-col relative overflow-hidden font-mono text-white'>
+          
+          {/* Header line mimicking SAO menu accent but retro */}
+          <div className='h-2 w-full bg-red-600 border-b-4 border-black'></div>
+          <div className='p-2 flex justify-between items-center border-b-4 border-black bg-slate-800'>
+             {player.name.toUpperCase()}
+             <span className="flex gap-2 text-sm drop-shadow-sm">
+                {player.types.map(t => (
+                <span key={t} title={t.toUpperCase()}>{TYPE_SYMBOLS[t] || '⚪'}</span>
+                ))}
+            </span>
+             <span className='text-xs text-gray-400 tracking-widest'>LV. {player.level}</span>
           </div>
           
-          {/* Central Display Area */}
-          <div className='relative h-48 flex items-center justify-center bg-gradient-to-b from-white to-[#f4f4f4]'>
+          {/* Central Display Area (The "VR" room but retro) */}
+          <div className='relative h-52 flex items-center justify-center bg-gradient-to-b from-slate-700 to-slate-900 overflow-hidden'>
+            
+            {/* Retro Grid Background Effect */}
+            <div className="absolute inset-0 opacity-10" style={{ backgroundImage: 'linear-gradient(#fff 1px, transparent 1px), linear-gradient(90deg, #fff 1px, transparent 1px)', backgroundSize: '16px 16px' }}></div>
+
+            {/* Character Sprite (Hologram Style) */}
             <img 
               src={`https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/${player.id}.png`}
               alt="Avatar Silhouette"
-              className="w-32 h-32 object-contain opacity-40 brightness-0 pointer-events-none" 
+              className="w-32 h-32 object-contain pixelated drop-shadow-[0_0_15px_rgba(74,222,128,0.5)] z-10 brightness-150" 
             />
             
-            <div className='absolute top-4 w-7 h-7 rounded-full border-[3px] border-gray-200 bg-gray-500 hover:bg-gray-400 shadow-sm cursor-pointer'></div>
-            <div className='absolute top-10 right-14 w-7 h-7 rounded-full border-[3px] border-gray-200 bg-gray-500 hover:bg-gray-400 shadow-sm cursor-pointer'></div>
-            <div className='absolute bottom-10 right-14 w-7 h-7 rounded-full border-[3px] border-gray-200 bg-gray-500 hover:bg-gray-400 shadow-sm cursor-pointer'></div>
+            {/* Equipment Nodes (Orbital positioning - retro styled) */}
+            <div className='absolute top-4 w-7 h-7 rounded-full border-2 border-slate-500 bg-slate-800 shadow-inner z-20'></div>
+            <div className='absolute top-10 right-12 w-7 h-7 rounded-full border-2 border-slate-500 bg-slate-800 shadow-inner z-20'></div>
+            <div className='absolute bottom-12 right-12 w-7 h-7 rounded-full border-2 border-slate-500 bg-slate-800 shadow-inner z-20'></div>
             
-            {/* Active/Selected Node (Orange) */}
-            <div className='absolute bottom-4 w-10 h-10 rounded-full border-[3px] border-gray-200 bg-white shadow-md cursor-pointer flex items-center justify-center overflow-hidden'>
+            {/* Active/Selected Node (Bottom Center) */}
+            <div className={`absolute bottom-4 w-12 h-12 rounded-full border-4 ${player.heldItem ? 'border-purple-500 bg-slate-200' : 'border-slate-500 bg-slate-800'} shadow-[0_0_15px_rgba(168,85,247,0.6)] flex items-center justify-center overflow-hidden z-20 transition-all`}>
                {player.heldItem ? (
-                 <img src={player.heldItem.spriteUrl} alt="held item" className="w-8 h-8 object-contain drop-shadow-sm" />
+                 <img src={player.heldItem.spriteUrl} alt="held item" className="w-8 h-8 object-contain pixelated" />
                ) : (
-                 <div className="w-3 h-3 rounded-full bg-orange-400"></div>
+                 <div className="w-3 h-3 rounded-full bg-slate-600"></div>
                )}
             </div>
             
-            <div className='absolute bottom-10 left-14 w-7 h-7 rounded-full border-[3px] border-gray-200 bg-gray-500 hover:bg-gray-400 shadow-sm cursor-pointer'></div>
-            <div className='absolute top-10 left-14 w-7 h-7 rounded-full border-[3px] border-gray-200 bg-gray-500 hover:bg-gray-400 shadow-sm cursor-pointer'></div>
+            <div className='absolute bottom-12 left-12 w-7 h-7 rounded-full border-2 border-slate-500 bg-slate-800 shadow-inner z-20'></div>
+            <div className='absolute top-10 left-12 w-7 h-7 rounded-full border-2 border-slate-500 bg-slate-800 shadow-inner z-20'></div>
           </div>
 
-          {/* SAO Style Detail Pane */}
-          <div className='bg-[#e9ecef] p-3 border-t border-gray-200'>
-            <div className='flex items-center gap-2 mb-1'>
-              <div className='bg-gray-500 text-white rounded-full w-4 h-4 flex items-center justify-center text-[10px] font-bold'>✖</div>
-              <span className='font-bold text-gray-700 text-sm'>Held Item</span>
+          {/* SAO Style Detail Pane (Retro Tech Look) */}
+          <div className='bg-slate-800 p-3 border-t-4 border-black z-30 relative'>
+            <div className='flex items-center gap-2 mb-2'>
+              <div className='bg-purple-600 text-white rounded-sm border-2 border-black w-5 h-5 flex items-center justify-center text-[10px] font-bold'>✖</div>
+              <span className='font-bold text-gray-200 text-sm tracking-widest'>HELD_ITEM</span>
             </div>
-            <div className='pl-6 text-xs text-gray-500 space-y-1 min-h-[50px]'>
+            <div className='pl-7 text-xs text-gray-400 space-y-1 min-h-[50px]'>
               {player.heldItem ? (
                 <>
-                  <p className="font-bold text-black uppercase">{player.heldItem.name}</p>
-                  <p className="leading-tight">{player.heldItem.description}</p>
-                  <p className="mt-1 font-bold">
-                    Bonuses: <span className="text-orange-500">
+                  <p className="font-bold text-purple-400 uppercase text-sm drop-shadow-sm">{player.heldItem.name}</p>
+                  <p className="leading-tight text-[10px]">{player.heldItem.description}</p>
+                  <p className="mt-2 font-bold text-gray-300">
+                    SYS_BONUS: <span className="text-green-400">
                       {Object.entries(player.heldItem.statModifiers).map(([stat, val]) => `${stat.toUpperCase()} ${val! > 0 ? '+' : ''}${val}`).join(', ')}
                     </span>
                   </p>
                 </>
               ) : (
                 <>
-                  <p>No item currently equipped.</p>
-                  <p>Stat Bonus: <span className="text-orange-400">0.00</span></p>
+                  <p className="text-red-400/80 italic">No equipment detected.</p>
                 </>
               )}
             </div>

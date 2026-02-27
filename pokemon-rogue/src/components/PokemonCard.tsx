@@ -5,6 +5,13 @@ interface PokemonCardProps {
   pokemon: Pokemon;
 }
 
+const TYPE_SYMBOLS: Record<string, string> = {
+  normal: '⚪', fire: '🔥', water: '💧', grass: '🌿', electric: '⚡',
+  ice: '❄️', fighting: '🥊', poison: '☠️', ground: '⛰️', flying: '🦅',
+  psychic: '🔮', bug: '🐛', rock: '🪨', ghost: '👻', dragon: '🐉',
+  dark: '🌙', steel: '⚙️', fairy: '✨'
+};
+
 export const PokemonCard = ({ pokemon }: PokemonCardProps) => {
   return (
     <div 
@@ -18,13 +25,18 @@ export const PokemonCard = ({ pokemon }: PokemonCardProps) => {
       <div className="flex items-center gap-2 mb-1">
         <span className="text-xs font-black text-green-400 italic">HP</span>
         <div className="flex-1">
-          {/* Use the nested stats object here */}
           <HealthBar hp={pokemon.stats.hp} maxHp={pokemon.stats.maxHp} />
         </div>
       </div>
-      {/* And here */}
-      <div className="text-right font-black text-xl">
-        {pokemon.stats.hp} / {pokemon.stats.maxHp}
+      <div className="flex justify-between items-center mt-2">
+        <div className="flex gap-1">
+          {pokemon.types.map(t => (
+            <span key={t} title={t.toUpperCase()} className="text-xl">{TYPE_SYMBOLS[t] || '⚪'}</span>
+          ))}
+        </div>
+        <div className="font-bold text-lg">
+          {pokemon.stats.hp} / {pokemon.stats.maxHp}
+        </div>
       </div>
     </div>
   );

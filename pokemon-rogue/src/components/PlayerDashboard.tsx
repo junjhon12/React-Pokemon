@@ -2,13 +2,6 @@ import { type Pokemon } from '../types/pokemon';
 import { type Move } from '../types/move';
 import { getEffectiveStat } from '../utils/gameLogic';
 
-const TYPE_SYMBOLS: Record<string, string> = {
-  normal: '⚪', fire: '🔥', water: '💧', grass: '🌿', electric: '⚡',
-  ice: '❄️', fighting: '🥊', poison: '☠️', ground: '⛰️', flying: '🦅',
-  psychic: '🔮', bug: '🐛', rock: '🪨', ghost: '👻', dragon: '🐉',
-  dark: '🌙', steel: '⚙️', fairy: '✨'
-};
-
 interface PlayerDashboardProps {
   player: Pokemon;
   enemy: Pokemon | null;
@@ -52,6 +45,7 @@ export const PlayerDashboard = ({ player, enemy, playerTurn, handleMoveClick }: 
              <h3 className='text-gray-300 font-bold uppercase tracking-widest text-xs'>
                 EQUIPMENT
              </h3>
+             <span>{player.name}</span>
              {player.equipment && player.equipment.length > 0 && (
                <span className="text-[10px] text-green-400 font-bold animate-pulse">
                  LINK_ACTIVE ({player.equipment.length}/6)
@@ -111,7 +105,6 @@ export const PlayerDashboard = ({ player, enemy, playerTurn, handleMoveClick }: 
               ) : (
                 <>
                   <p className="text-red-400/80 italic">No equipment detected.</p>
-                  <p className="text-[10px]">Awaiting physical link...</p>
                 </>
               )}
             </div>

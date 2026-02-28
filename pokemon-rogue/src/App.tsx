@@ -51,25 +51,25 @@ function App() {
           {/* RIGHT PANEL: The Arena & Logs */}
           <div className='flex-1 flex flex-col relative bg-[#1a1a24]'>
             
-            {/* Top Header Bar */}
-            <div className='h-12 bg-[#b31429] flex items-center px-6 justify-between border-b-4 border-black'>
+            {/* 1. Top Header Bar */}
+            <div className='h-12 bg-[#b31429] flex items-center px-6 justify-between border-b-4 border-black shrink-0'>
               <h1 className='text-white font-black text-xl tracking-widest uppercase'>
                 {floor % 10 === 0 ? `BOSS ROOM ${floor}` : floor % 5 === 0 ? `MINI-BOSS ${floor}` : `ROOM ${floor}`}
               </h1>
               <span className="text-gray-200 font-bold text-sm">AREA {Math.ceil(floor/5)}</span>
             </div>
 
-            {/* Main Arena Display */}
-            <div className='flex-1 relative bg-gradient-to-b from-[#87ceeb] to-[#90ee90] overflow-hidden border-b-4 border-black'>
-              
-              {/* Game Log Overlay (Top of Arena) */}
-              <div className='absolute top-0 left-0 w-full h-32 bg-black/80 text-green-400 p-4 overflow-y-auto text-sm font-mono z-30'>
-                {gameLog.map((log, i) => (
-                  <p key={i} className="mb-1">{log}</p>
-                ))}
-                <div ref={logEndRef} />
-              </div>
+            {/* 2. NEW: Dedicated Game Log Block */}
+            <div className='w-full h-32 bg-black text-green-400 p-4 overflow-y-auto text-sm font-mono border-b-4 border-black shrink-0 shadow-inner'>
+              {gameLog.map((log, i) => (
+                <p key={i} className="mb-1">{log}</p>
+              ))}
+              <div ref={logEndRef} />
+            </div>
 
+            {/* 3. Main Arena Display */}
+            <div className='flex-1 relative bg-gradient-to-b from-[#87ceeb] to-[#90ee90] overflow-hidden'>
+              
               {/* OVERLAYS: Loot & Game Over */}
               <LootOverlay upgrades={upgrades} handleSelectUpgrade={handleSelectUpgrade} />
 
@@ -92,38 +92,40 @@ function App() {
               {/* SPRITES AND FLOATING INFO BARS */}
               {player && enemy && (
                 <>
-                  {/* --- ENEMY SIDE --- */}
-                  {/* Enemy Info Card (Top Left) */}
-                  <div className="absolute top-10 left-10 z-30">
+                  {/* --- ENEMY SIDE (Top Row) --- */}
+                  <div className="absolute top-12 left-0 w-full px-10 flex justify-between items-start z-10">
+                    {/* Enemy Info Card */}
                     <PokemonCard pokemon={enemy} />
-                  </div>
-                  
-                  {/* Enemy Sprite (Top Right) */}
-                  <div className={`absolute top-16 right-20 flex flex-col items-center justify-end z-10 ${enemyAnimation}`}>
-                    <img 
-                      src={`https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/${enemy.id}.png`}
-                      alt={enemy.name}
-                      className="w-48 h-48 pixelated drop-shadow-2xl relative z-10"
-                    />
-                    {/* Ground Shadow */}
-                    <div className="w-32 h-6 bg-black/20 rounded-[100%] absolute bottom-4 blur-sm z-0"></div>
-                  </div>
-
-                  {/* --- PLAYER SIDE --- */}
-                  {/* Player Info Card (Bottom Right) */}
-                  <div className="absolute bottom-12 right-10 z-30">
-                    <PokemonCard pokemon={player} />
+                    
+                    {/* Enemy Sprite */}
+                    <div className={`relative flex flex-col items-center justify-end mr-10 mt-4 ${enemyAnimation}`}>
+                      <img 
+                        src={`https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/${enemy.id}.png`}
+                        alt={enemy.name}
+                        className="w-48 h-48 pixelated drop-shadow-2xl relative z-10"
+                      />
+                      {/* Ground Shadow */}
+                      <div className="w-32 h-6 bg-black/20 rounded-[100%] absolute bottom-10 blur-sm z-0"></div>
+                    </div>
                   </div>
 
-                  {/* Player Sprite (Bottom Left) */}
-                  <div className={`absolute bottom-4 left-20 flex flex-col items-center justify-end z-20 ${playerAnimation}`}>
-                    <img 
-                      src={`https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/back/${player.id}.png`}
-                      alt={player.name}
-                      className="w-56 h-56 pixelated drop-shadow-2xl relative z-10"
-                    />
-                    {/* Ground Shadow */}
-                    <div className="w-40 h-8 bg-black/20 rounded-[100%] absolute bottom-2 blur-sm z-0"></div>
+                  {/* --- PLAYER SIDE (Bottom Row) --- */}
+                  <div className="absolute bottom-12 left-0 w-full px-10 flex justify-between items-end z-20">
+                    {/* Player Sprite */}
+                    <div className={`relative flex flex-col items-center justify-end ml-10 ${playerAnimation}`}>
+                      <img 
+                        src={`https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/back/${player.id}.png`}
+                        alt={player.name}
+                        className="w-56 h-56 pixelated drop-shadow-2xl relative z-10"
+                      />
+                      {/* Ground Shadow */}
+                      <div className="w-40 h-8 bg-black/20 rounded-[100%] absolute bottom-10 blur-sm z-0"></div>
+                    </div>
+
+                    {/* Player Info Card */}
+                    <div className="mb-10">
+                      <PokemonCard pokemon={player} />
+                    </div>
                   </div>
                 </>
               )}

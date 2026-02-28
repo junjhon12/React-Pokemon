@@ -2,8 +2,10 @@ import { type Pokemon } from '../types/pokemon';
 import { type Move } from '../types/move';
 import { type Equipment } from '../types/equipment';
 import { CUSTOM_ITEM_DATA } from '../data/items';
+import TCGdex from '@tcgdex/sdk';
 
 const POKE_API_URL = 'https://pokeapi.co/api/v2/pokemon/';
+const tcgdex = new TCGdex('en');
 
 const fetchMoveDetails = async (url: string): Promise<Move | null> => {
   try {
@@ -74,7 +76,6 @@ export const fetchEquipmentFromPokeAPI = async (itemName: string): Promise<Equip
     const response = await fetch(`https://pokeapi.co/api/v2/item/${itemName}`);
     const data = await response.json();
 
-    // Look up our custom tailored stats from the imported data file
     const customData = CUSTOM_ITEM_DATA[itemName];
 
     if (!customData) {
@@ -93,5 +94,21 @@ export const fetchEquipmentFromPokeAPI = async (itemName: string): Promise<Equip
   } catch (error) {
     console.error("Error fetching item from PokeAPI:", error);
     return null;
+  }
+};
+
+export const fetchPokemonCard = async () => {
+  try {
+    // The SDK makes it incredibly easy to request specific cards
+    // base1-44 = Bulbasaur, base1-46 = Charmander, base1-63 = Squirtle
+    const bulbasaur = await tcgdex.fetch('cards', 'base1-44');
+    const charmander = await tcgdex.fetch('cards', 'base1-46');
+    const squirtle = await tcgdex.fetch('cards', 'base1-63');
+
+    // Return them in an array, filtering out any undefined results just in case
+    return [bulbasaur, charmander, squirtle].filter(Boolean);
+  } catch (error) {
+    console.error("Error fetching from TCGdex SDK:", error);
+    return [];
   }
 };

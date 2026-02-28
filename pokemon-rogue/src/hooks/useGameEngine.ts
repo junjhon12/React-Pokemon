@@ -15,10 +15,10 @@ export const useGameEngine = () => {
   const [upgrades, setUpgrades] = useState<Upgrade[]>([]);
   const [playerAnimation, setPlayerAnimation] = useState<string>('');
   const [enemyAnimation, setEnemyAnimation] = useState<string>('');
-  const [isGameStarted, setIsGameStarted] = useState<boolean>(false);
+  
+  const [isGameStarted, setIsGameStarted] = useState<'START'|'SELECT'|'BATTLE'>('START');
   const [highScore, setHighScore] = useState<number>(0);
 
-  // Load High Score
   useEffect(() => {
     const savedScore = localStorage.getItem('rogue-score');
     if (savedScore) {
@@ -26,7 +26,6 @@ export const useGameEngine = () => {
     }
   }, []);
 
-  // Save High Score on Death
   useEffect(() => {
     if (player && player.stats.hp === 0) {
       if (floor > highScore) {
@@ -36,13 +35,18 @@ export const useGameEngine = () => {
     }
   }, [player?.stats.hp]);
 
-  const startGame = async () => {
-    setIsGameStarted(true);
+  // Phase 1: Go to Selection Screen
+  const startGame = () => {
+    setIsGameStarted('SELECT');
+  };
+
+  // Phase 2: Pick Starter and Start Battle
+  const selectStarterAndStart = async (starterId: number) => {
     setFloor(1);
     setGameLog(['Welcome to the Dungeon!', 'Battle Start!']);
     setUpgrades([]);
 
-    const p1 = await getRandomPokemon(Math.floor(Math.random() * 151) + 1);
+    const p1 = await getRandomPokemon(starterId);
     const p2 = await getRandomPokemon(Math.floor(Math.random() * 151) + 1);
 
     const playerMon = { ...p1, isPlayer: true };
@@ -58,9 +62,10 @@ export const useGameEngine = () => {
       setPlayerTurn(false);
       setGameLog((prev) => [...prev, `${p2.name} is faster!`]);
     }
+    
+    setIsGameStarted('BATTLE');
   };
 
-  // Loot Trigger
   useEffect(() => {
     if (enemy && enemy.stats.hp <= 0 && upgrades.length === 0) {
       if (player) {
@@ -84,14 +89,11 @@ export const useGameEngine = () => {
       const fetchLoot = async () => {
         const baseLoot = getRandomUpgrades(2, player?.id);
         const currentEquipCount = player?.equipment?.length || 0;
-        // Keep at 1 for testing so it drops immediately!
+        
         if (floor % 1 === 0 && currentEquipCount < 6) { 
           const randomItemName = ITEM_POOL[Math.floor(Math.random() * ITEM_POOL.length)];
           let equipment = await fetchEquipmentFromPokeAPI(randomItemName);
           
-          // --- NEW: FOOLPROOF FALLBACK ---
-          // If the PokeAPI blocks the request or fails, we manually build the item
-          // so that the game doesn't break and you still get your loot.
           if (!equipment) {
             console.warn("PokeAPI failed to fetch item. Using local fallback.");
             equipment = {
@@ -118,7 +120,6 @@ export const useGameEngine = () => {
           baseLoot.push(extra);
         }
         
-        // Spread into a new array to guarantee React triggers a re-render
         setUpgrades([...baseLoot]);
       };
 
@@ -126,7 +127,6 @@ export const useGameEngine = () => {
     }
   }, [enemy?.stats.hp]);
 
-  // Enemy AI
   useEffect(() => {
     if (playerTurn || !enemy || !player) return;
     if (enemy.stats.hp <= 0 || player.stats.hp <= 0) return;
@@ -432,7 +432,7 @@ export const useGameEngine = () => {
   return {
     player, enemy, playerTurn, gameLog, floor, upgrades,
     playerAnimation, enemyAnimation, isGameStarted, highScore,
-    startGame, handleMoveClick, handleSelectUpgrade, setIsGameStarted,
+    startGame, selectStarterAndStart, handleMoveClick, handleSelectUpgrade, setIsGameStarted,
     gameOver, winner
   };
 };

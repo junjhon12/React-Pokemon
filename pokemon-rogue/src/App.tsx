@@ -2,28 +2,40 @@ import { PokemonCard } from './components/PokemonCard';
 import { StartScreen } from './components/StartScreen'; 
 import { LootOverlay } from './components/LootOverlay'; 
 import { PlayerDashboard } from './components/PlayerDashboard'; 
+import { StarterSelection } from './playerPokemonSelection';
 import { useGameEngine } from './hooks/useGameEngine';
-import { useState, useEffect, useRef } from 'react';
+import { useEffect, useRef } from 'react';
 import './App.css';
 
 function App() {
   const {
     player, enemy, playerTurn, gameLog, floor, upgrades,
     playerAnimation, enemyAnimation, isGameStarted, highScore,
-    startGame, handleMoveClick, handleSelectUpgrade, setIsGameStarted,
+    startGame, selectStarterAndStart, handleMoveClick, handleSelectUpgrade, setIsGameStarted,
     gameOver, winner
   } = useGameEngine();
+  
   const logEndRef = useRef<HTMLDivElement>(null);
+  
   useEffect(() => {
     logEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [gameLog]);
+
   return (
     <div className='min-h-screen w-screen bg-black flex items-center justify-center font-mono p-4'>
       
-      {!isGameStarted ? (
+      {/* SCREEN 1: Start Menu */}
+      {isGameStarted === 'START' && (
         <StartScreen highScore={highScore} startGame={startGame} />
-      ) : (
-        /* --- RETRO RPG DASHBOARD LAYOUT --- */
+      )}
+
+      {/* SCREEN 2: TCG Starter Selection */}
+      {isGameStarted === 'SELECT' && (
+        <StarterSelection onSelectStarter={selectStarterAndStart} />
+      )}
+
+      {/* SCREEN 3: The Battle Arena */}
+      {isGameStarted === 'BATTLE' && (
         <div className='w-full max-w-6xl h-[800px] flex bg-white border-4 border-black rounded-lg overflow-hidden shadow-2xl'>
           
           {/* LEFT PANEL: Player Dashboard */}
@@ -68,7 +80,7 @@ function App() {
                   </h2>
                   {winner === 'Enemy' && (
                     <button 
-                      onClick={() => setIsGameStarted(false)}
+                      onClick={() => setIsGameStarted('START')}
                       className='bg-red-600 hover:bg-red-700 border-2 border-white text-white px-8 py-4 rounded-xl font-bold text-xl cursor-pointer'
                     >
                       Finish Run
@@ -82,12 +94,12 @@ function App() {
                 <>
                   {/* --- ENEMY SIDE --- */}
                   {/* Enemy Info Card (Top Left) */}
-                  <div className="absolute top-40 left-10 z-30">
+                  <div className="absolute top-10 left-10 z-30">
                     <PokemonCard pokemon={enemy} />
                   </div>
                   
                   {/* Enemy Sprite (Top Right) */}
-                  <div className={`absolute top-30 right-10 flex flex-col items-center justify-end z-10 ${enemyAnimation}`}>
+                  <div className={`absolute top-16 right-20 flex flex-col items-center justify-end z-10 ${enemyAnimation}`}>
                     <img 
                       src={`https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/${enemy.id}.png`}
                       alt={enemy.name}
@@ -99,12 +111,12 @@ function App() {
 
                   {/* --- PLAYER SIDE --- */}
                   {/* Player Info Card (Bottom Right) */}
-                  <div className="absolute bottom-30 right-10 z-30">
+                  <div className="absolute bottom-12 right-10 z-30">
                     <PokemonCard pokemon={player} />
                   </div>
 
                   {/* Player Sprite (Bottom Left) */}
-                  <div className={`absolute bottom-10 left-20 flex flex-col items-center justify-end z-20 ${playerAnimation}`}>
+                  <div className={`absolute bottom-4 left-20 flex flex-col items-center justify-end z-20 ${playerAnimation}`}>
                     <img 
                       src={`https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/back/${player.id}.png`}
                       alt={player.name}

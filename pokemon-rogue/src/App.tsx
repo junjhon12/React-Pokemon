@@ -36,7 +36,7 @@ function App() {
 
       {/* SCREEN 3: The Battle Arena */}
       {isGameStarted === 'BATTLE' && (
-        <div className='w-full max-w-6xl h-[800px] flex bg-white border-4 border-mist-600 rounded-lg overflow-hidden shadow-2xl'>
+        <div className='w-full max-w-6xl h-200 flex bg-white border-4 border-mist-600 rounded-lg overflow-hidden shadow-2xl'>
           
           {/* LEFT PANEL: Player Dashboard */}
           {player && (
@@ -68,7 +68,7 @@ function App() {
             </div>
 
             {/* 3. Main Arena Display */}
-            <div className='flex-1 relative bg-gradient-to-b from-[#87ceeb] to-[#90ee90] overflow-hidden'>
+            <div className='flex-1 relative bg-linear-to-b from-[#87ceeb] to-[#90ee90] overflow-hidden'>
               
               {/* OVERLAYS: Loot & Game Over */}
               <LootOverlay upgrades={upgrades} handleSelectUpgrade={handleSelectUpgrade} />

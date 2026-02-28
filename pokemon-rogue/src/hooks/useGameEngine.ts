@@ -46,8 +46,12 @@ export const useGameEngine = () => {
     setGameLog(['Welcome to the Dungeon!', 'Battle Start!']);
     setUpgrades([]);
 
-    const p1 = await getRandomPokemon(starterId);
-    const p2 = await getRandomPokemon(Math.floor(Math.random() * 151) + 1);
+    // --- OPTIMIZATION: The Async Waterfall Fix ---
+    // Promise.all fires both network requests simultaneously, cutting load times in half!
+    const [p1, p2] = await Promise.all([
+      getRandomPokemon(starterId),
+      getRandomPokemon(Math.floor(Math.random() * 151) + 1)
+    ]);
 
     const playerMon = { ...p1, isPlayer: true };
     const enemyMon = { ...p2, isPlayer: false };

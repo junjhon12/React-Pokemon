@@ -36,7 +36,7 @@ function App() {
 
       {/* SCREEN 3: The Battle Arena */}
       {isGameStarted === 'BATTLE' && (
-        <div className='w-full max-w-6xl h-[800px] flex bg-white border-4 border-black rounded-lg overflow-hidden shadow-2xl'>
+        <div className='w-full max-w-6xl h-[800px] flex bg-white border-4 border-mist-600 rounded-lg overflow-hidden shadow-2xl'>
           
           {/* LEFT PANEL: Player Dashboard */}
           {player && (

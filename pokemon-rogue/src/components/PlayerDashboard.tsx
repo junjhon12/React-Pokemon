@@ -15,7 +15,7 @@ export const PlayerDashboard = ({ handleMoveClick }: PlayerDashboardProps) => {
   if (!player || !enemy) return null;
 
   return (
-    <div className='w-[400px] bg-[#d3d3d3] flex flex-col border-r-4 border-black shrink-0 text-black'>
+    <div className='w-100 bg-[#d3d3d3] flex flex-col border-r-4 border-black shrink-0 text-black'>
       {/* Top Stats Area */}
       <div className='p-6 flex-1'>
         <div className='space-y-2 text-sm font-bold border-b-4 border-black pb-4 mb-4'>
@@ -57,7 +57,7 @@ export const PlayerDashboard = ({ handleMoveClick }: PlayerDashboardProps) => {
              )}
           </div>
           
-          <div className='relative h-52 flex items-center justify-center bg-gradient-to-b from-slate-700 to-slate-900 overflow-hidden'>
+          <div className='relative h-52 flex items-center justify-center bg-linear-to-b from-slate-700 to-slate-900 overflow-hidden'>
             <div className="absolute inset-0 opacity-10" style={{ backgroundImage: 'linear-gradient(#fff 1px, transparent 1px), linear-gradient(90deg, #fff 1px, transparent 1px)', backgroundSize: '16px 16px' }}></div>
 
             <img 
@@ -86,7 +86,7 @@ export const PlayerDashboard = ({ handleMoveClick }: PlayerDashboardProps) => {
               <div className='bg-purple-600 text-white rounded-sm border-2 border-black w-5 h-5 flex items-center justify-center text-[10px] font-bold'>✖</div>
               <span className='font-bold text-gray-200 text-sm tracking-widest'>INVENTORY</span>
             </div>
-            <div className='pl-7 text-xs text-gray-400 space-y-1 min-h-[50px]'>
+            <div className='pl-7 text-xs text-gray-400 space-y-1 min-h-12.5'>
               {player.equipment && player.equipment.length > 0 ? (
                 <>
                   <p className="font-bold text-purple-400 uppercase text-[10px] drop-shadow-sm leading-tight line-clamp-2">
@@ -117,7 +117,7 @@ export const PlayerDashboard = ({ handleMoveClick }: PlayerDashboardProps) => {
       </div>
 
       {/* Bottom Left Moves Area */}
-      <div className='h-[250px] bg-[#1a1a24] p-4 flex flex-col justify-end border-t-4 border-black'>
+      <div className='h-62.5 bg-[#1a1a24] p-4 flex flex-col justify-end border-t-4 border-black'>
         {playerTurn ? (
           <div className="grid grid-cols-2 gap-2 h-full">
             {player.moves?.map((move, index) => (

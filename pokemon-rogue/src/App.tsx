@@ -26,53 +26,54 @@ function App() {
   }, [gameLog]);
 
   // ==========================================
-  // NEW: Save Score Function
-  // ==========================================
-  // ==========================================
-  // UPDATED: Save Score Function with Memory
+  // SECURE: Save Score Function
   // ==========================================
   const handleFinishRun = async () => {
     if (!player) return;
 
-    // 1. Check if the browser remembers this player
-    let playerName = localStorage.getItem('rogue-player-name');
+    // 1. Grab the secure JWT token from memory
+    const token = localStorage.getItem('rogue-google-token');
 
-    // 2. If it's a new player, ask for their name and save it to memory
-    if (!playerName) {
-      const input = window.prompt("Run Over! Enter your trainer name for the Global Leaderboard:", "Guest Trainer");
-      if (!input) {
-        setIsGameStarted('START'); // If they click cancel, just go to menu
-        return; 
-      }
-      playerName = input.slice(0, 15);
-      localStorage.setItem('rogue-player-name', playerName);
+    // 2. Reject them if they aren't logged in
+    if (!token) {
+      alert("You must be logged in with Google to record your run on the Global Leaderboard!");
+      setIsGameStarted('START');
+      return;
     }
 
-    // 3. Send the data to our new Upsert backend route
+    // 3. Send the secure request with the Authorization header
     try {
       const response = await fetch('http://localhost:5000/api/leaderboard', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}` // <-- Handing the VIP pass to the bouncer
         },
         body: JSON.stringify({
-          name: playerName,
+          // The backend gets the true name from the token now!
           pokemon: player.name.charAt(0).toUpperCase() + player.name.slice(1),
           pokemonId: player.id,
           floor: floor
         })
       });
 
-      if (!response.ok) throw new Error('Network response was not ok');
+      if (!response.ok) {
+        // If the token is expired or fake, clear it and force a re-login
+        if (response.status === 401 || response.status === 403) {
+           localStorage.removeItem('rogue-google-token');
+           localStorage.removeItem('rogue-player-name');
+           alert("Your session expired. Please log in again.");
+        }
+        throw new Error('Server rejected the secure request');
+      }
+      
       const data = await response.json();
-      console.log(data.message); // Will log if they beat their high score or not
+      console.log(data.message); 
       
     } catch (error) {
-      console.error("❌ Failed to save score:", error);
-      alert("Could not connect to the leaderboard database.");
+      console.error("❌ Failed to save secure score:", error);
     }
 
-    // 4. Return to the Start Screen
     setIsGameStarted('START');
   };
 

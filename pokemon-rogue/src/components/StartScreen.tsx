@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
+import { GoogleLogin } from '@react-oauth/google';
+import { jwtDecode } from 'jwt-decode';
 
-// Define the shape of our database documents
 interface LeaderboardEntry {
   _id: string;
   name: string;
@@ -15,11 +16,12 @@ interface StartScreenProps {
 }
 
 export const StartScreen = ({ highScore, startGame }: StartScreenProps) => {
-  // State to hold the live database scores
   const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  
+  // Check if they are already logged in from a previous session
+  const [loggedInUser, setLoggedInUser] = useState<string | null>(localStorage.getItem('rogue-player-name'));
 
-  // Fetch the top 10 scores when the component mounts
   useEffect(() => {
     const fetchLeaderboard = async () => {
       try {
@@ -36,6 +38,13 @@ export const StartScreen = ({ highScore, startGame }: StartScreenProps) => {
 
     fetchLeaderboard();
   }, []);
+
+  // Handle manual disconnect
+  const handleLogout = () => {
+    localStorage.removeItem('rogue-player-name');
+    localStorage.removeItem('rogue-google-token');
+    setLoggedInUser(null);
+  };
 
   return (
     <div className='w-full max-w-5xl h-[600px] flex border-4 border-black rounded-lg overflow-hidden shadow-2xl font-mono'>
@@ -54,11 +63,7 @@ export const StartScreen = ({ highScore, startGame }: StartScreenProps) => {
           ) : (
             leaderboard.map((entry, idx) => (
               <div key={entry._id} className='flex items-center gap-3 text-sm border-b border-gray-800 pb-2'>
-                
-                {/* 1. Rank */}
                 <span className='text-gray-500 font-bold w-6 shrink-0'>#{idx + 1}</span>
-                
-                {/* 2. Name & Sprite */}
                 <div className='flex-1 flex items-center gap-2 min-w-0 '>
                   <span className='text-white truncate' title={entry.name}>
                     {entry.name}
@@ -70,12 +75,9 @@ export const StartScreen = ({ highScore, startGame }: StartScreenProps) => {
                     className="w-8 h-8 pixelated shrink-0 drop-shadow-md"
                   />
                 </div>
-
-                {/* 3. Score */}
                 <div className='text-green-400 font-bold shrink-0 text-right whitespace-nowrap'>
                   Area {Math.ceil(entry.floor / 5)} Floor {entry.floor}
                 </div>
-                
               </div>
             ))
           )}
@@ -83,17 +85,47 @@ export const StartScreen = ({ highScore, startGame }: StartScreenProps) => {
 
         {/* Auth Section */}
         <div className='mt-6 pt-6 border-t-4 border-gray-700'>
-          <p className='text-xs text-gray-400 mb-3 text-center uppercase tracking-widest'>
-            Login to record your runs
-          </p>
-        </div>
-        <div className="flex justify-center">
-          <button 
-              onClick={() => console.log("Google Auth coming soon!")}
-              className='w-1/9 bg-white hover:bg-gray-200 text-black font-bold py-3 px-4 rounded-4xl border-2 border-black flex justify-center gap-3 transition-transform active:scale-95 cursor-pointer'
-            >
-              <img src="https://www.svgrepo.com/show/475656/google-color.svg" alt="Google" className="w-5 h-5" />
-          </button>  
+          {!loggedInUser ? (
+            <>
+              <p className='text-xs text-gray-400 mb-3 text-center uppercase tracking-widest'>
+                Login to record your runs
+              </p>
+              <div className="flex justify-center">
+                <GoogleLogin
+                  onSuccess={(credentialResponse) => {
+                    if (credentialResponse.credential) {
+                      // Decode the JWT to get their real Google name
+                      const decoded = jwtDecode(credentialResponse.credential) as any;
+                      // Strip spaces and limit length to keep the UI unbreakable
+                      const googleName = decoded.name.replace(/\s+/g, '').slice(0, 15); 
+                      
+                      // Save the name for the UI, and the token for the backend
+                      localStorage.setItem('rogue-player-name', googleName);
+                      localStorage.setItem('rogue-google-token', credentialResponse.credential);
+                      setLoggedInUser(googleName);
+                    }
+                  }}
+                  onError={() => {
+                    console.error('Login Failed');
+                  }}
+                  theme="filled_black"
+                  shape="pill"
+                />
+              </div>
+            </>
+          ) : (
+            <div className="text-center">
+              <p className="text-sm text-green-400 font-bold uppercase tracking-widest mb-2">
+                ACTIVE LINK: {loggedInUser}
+              </p>
+              <button 
+                onClick={handleLogout}
+                className="text-xs text-red-500 hover:text-white border border-red-500 hover:bg-red-500 px-3 py-1 rounded transition-colors cursor-pointer"
+              >
+                DISCONNECT
+              </button>
+            </div>
+          )}
         </div>
       </div>
 

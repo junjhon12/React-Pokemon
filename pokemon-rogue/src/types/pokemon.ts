@@ -16,3 +16,5 @@ export interface Pokemon {
     status?: 'normal' | 'burn' | 'poison' | 'paralyze' | 'freeze';
     equipment?: Equipment[];
 }
+
+export { Equipment };

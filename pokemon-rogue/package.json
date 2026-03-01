@@ -13,6 +13,7 @@
   "dependencies": {
     "@supabase/supabase-js": "^2.98.0",
     "@tcgdex/sdk": "^2.7.1",
+    "mongodb": "^7.1.0",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
     "zustand": "^5.0.11"

@@ -1,53 +1,51 @@
-import { useState, useEffect } from 'react';
+import { useEffect } from 'react';
 import { type Pokemon, type StatKey } from '../types/pokemon';
 import type { Upgrade } from '../types/upgrade';
 import type { Move } from '../types/move';
 import { getRandomPokemon, fetchEquipmentFromPokeAPI } from '../utils/api'; 
 import { scaleEnemyStats, getRandomUpgrades, getTypeEffectiveness, EVOLUTION_MAP, getEffectiveStat } from '../utils/gameLogic';
 import { ITEM_POOL } from '../data/items';
+import { useGameStore } from '../store/gameStore'; // <-- NEW IMPORT
 
 export const useGameEngine = () => {
-  const [player, setPlayer] = useState<Pokemon | null>(null);
-  const [enemy, setEnemy] = useState<Pokemon | null>(null);
-  const [playerTurn, setPlayerTurn] = useState<boolean>(true);
-  const [gameLog, setGameLog] = useState<string[]>([]);
-  const [floor, setFloor] = useState<number>(1);
-  const [upgrades, setUpgrades] = useState<Upgrade[]>([]);
-  const [playerAnimation, setPlayerAnimation] = useState<string>('');
-  const [enemyAnimation, setEnemyAnimation] = useState<string>('');
-  
-  const [isGameStarted, setIsGameStarted] = useState<'START'|'SELECT'|'BATTLE'>('START');
-  const [highScore, setHighScore] = useState<number>(0);
+  // Pull state from Zustand
+  const {
+    player, enemy, playerTurn, gameLog, floor, upgrades,
+    playerAnimation, enemyAnimation, isGameStarted, highScore
+  } = useGameStore();
 
-  useEffect(() => {
-    const savedScore = localStorage.getItem('rogue-score');
-    if (savedScore) {
-      setHighScore(parseInt(savedScore));
-    }
-  }, []);
+  // Zustand wrappers to mimic React's setState so we don't break the combat math
+  const setPlayer = (val: any) => useGameStore.setState(typeof val === 'function' ? (s) => ({ player: val(s.player) }) : { player: val });
+  const setEnemy = (val: any) => useGameStore.setState(typeof val === 'function' ? (s) => ({ enemy: val(s.enemy) }) : { enemy: val });
+  const setPlayerTurn = (val: any) => useGameStore.setState(typeof val === 'function' ? (s) => ({ playerTurn: val(s.playerTurn) }) : { playerTurn: val });
+  const setGameLog = (val: any) => useGameStore.setState(typeof val === 'function' ? (s) => ({ gameLog: val(s.gameLog) }) : { gameLog: val });
+  const setFloor = (val: any) => useGameStore.setState(typeof val === 'function' ? (s) => ({ floor: val(s.floor) }) : { floor: val });
+  const setUpgrades = (val: any) => useGameStore.setState(typeof val === 'function' ? (s) => ({ upgrades: val(s.upgrades) }) : { upgrades: val });
+  const setPlayerAnimation = (val: any) => useGameStore.setState(typeof val === 'function' ? (s) => ({ playerAnimation: val(s.playerAnimation) }) : { playerAnimation: val });
+  const setEnemyAnimation = (val: any) => useGameStore.setState(typeof val === 'function' ? (s) => ({ enemyAnimation: val(s.enemyAnimation) }) : { enemyAnimation: val });
+  const setIsGameStarted = (val: any) => useGameStore.setState(typeof val === 'function' ? (s) => ({ isGameStarted: val(s.isGameStarted) }) : { isGameStarted: val });
+  
+  const setHighScore = (val: any) => {
+     const newScore = typeof val === 'function' ? val(highScore) : val;
+     localStorage.setItem('rogue-score', newScore.toString());
+     useGameStore.setState({ highScore: newScore });
+  };
 
   useEffect(() => {
     if (player && player.stats.hp === 0) {
       if (floor > highScore) {
         setHighScore(floor);
-        localStorage.setItem('rogue-score', floor.toString());
       }
     }
   }, [player?.stats.hp]);
 
-  // Phase 1: Go to Selection Screen
-  const startGame = () => {
-    setIsGameStarted('SELECT');
-  };
+  const startGame = () => setIsGameStarted('SELECT');
 
-  // Phase 2: Pick Starter and Start Battle
   const selectStarterAndStart = async (starterId: number) => {
     setFloor(1);
     setGameLog(['Welcome to the Dungeon!', 'Battle Start!']);
     setUpgrades([]);
 
-    // --- OPTIMIZATION: The Async Waterfall Fix ---
-    // Promise.all fires both network requests simultaneously, cutting load times in half!
     const [p1, p2] = await Promise.all([
       getRandomPokemon(starterId),
       getRandomPokemon(Math.floor(Math.random() * 151) + 1)
@@ -61,10 +59,10 @@ export const useGameEngine = () => {
 
     if (p1.stats.speed >= p2.stats.speed) {
       setPlayerTurn(true);
-      setGameLog((prev) => [...prev, `${p1.name} moves first!`]);
+      setGameLog((prev: string[]) => [...prev, `${p1.name} moves first!`]);
     } else {
       setPlayerTurn(false);
-      setGameLog((prev) => [...prev, `${p2.name} is faster!`]);
+      setGameLog((prev: string[]) => [...prev, `${p2.name} is faster!`]);
     }
     
     setIsGameStarted('BATTLE');
@@ -82,10 +80,10 @@ export const useGameEngine = () => {
         if (totalXp >= currentMaxXp) {
           const overflow = totalXp - currentMaxXp;
           newPlayer = handleLevelUp(newPlayer, overflow);
-          setGameLog(prev => [...prev, `Level Up! You are now Lvl ${newPlayer.level}!`]);
+          setGameLog((prev: string[]) => [...prev, `Level Up! You are now Lvl ${newPlayer.level}!`]);
         } else {
           newPlayer.xp = totalXp;
-          setGameLog(prev => [...prev, `You gained ${xpGain} XP.`]);
+          setGameLog((prev: string[]) => [...prev, `You gained ${xpGain} XP.`]);
         }
         setPlayer(newPlayer);
       }
@@ -138,15 +136,15 @@ export const useGameEngine = () => {
     const turnTimer = setTimeout(() => {
       if (enemy.status === 'freeze') {
         if (Math.random() < 0.2) {
-          setGameLog(prev => [...prev, `${enemy.name} thawed out!`]);
-          setEnemy(e => e ? { ...e, status: 'normal' } : null);
+          setGameLog((prev: string[]) => [...prev, `${enemy.name} thawed out!`]);
+          setEnemy((e: Pokemon | null) => e ? { ...e, status: 'normal' } : null);
         } else {
-          setGameLog(prev => [...prev, `${enemy.name} is frozen solid!`]);
+          setGameLog((prev: string[]) => [...prev, `${enemy.name} is frozen solid!`]);
           setPlayerTurn(true);
           return;
         }
       } else if (enemy.status === 'paralyze' && Math.random() < 0.25) {
-        setGameLog(prev => [...prev, `${enemy.name} is paralyzed! It can't move!`]);
+        setGameLog((prev: string[]) => [...prev, `${enemy.name} is paralyzed! It can't move!`]);
         setPlayerTurn(true);
         return;
       }
@@ -161,7 +159,7 @@ export const useGameEngine = () => {
       setTimeout(() => {
         const playerDodge = getEffectiveStat(player, 'dodge');
         if ((Math.random() * 100) < playerDodge) {
-          setGameLog((prev) => [...prev, `${player.name} dodged the attack!`]);
+          setGameLog((prev: string[]) => [...prev, `${player.name} dodged the attack!`]);
           setEnemyAnimation('');
           setPlayerAnimation('');
           setPlayerTurn(true);
@@ -193,7 +191,7 @@ export const useGameEngine = () => {
           }
         }
 
-        setPlayer((prev) => {
+        setPlayer((prev: Pokemon | null) => {
           if (!prev) return null;
           return { ...prev, stats: { ...prev.stats, hp: Math.max(prev.stats.hp - finalDamage, 0) }, status: appliedStatus };
         });
@@ -205,11 +203,11 @@ export const useGameEngine = () => {
 
         if (enemy.status === 'burn' || enemy.status === 'poison') {
           const tickDamage = Math.max(1, Math.floor(enemy.stats.maxHp * 0.1));
-          setEnemy(e => e ? { ...e, stats: { ...e.stats, hp: Math.max(e.stats.hp - tickDamage, 0) } } : null);
+          setEnemy((e: Pokemon | null) => e ? { ...e, stats: { ...e.stats, hp: Math.max(e.stats.hp - tickDamage, 0) } } : null);
           logMsg += ` ${enemy.name} took ${tickDamage} damage from its ${enemy.status}!`;
         }
 
-        setGameLog((prev) => [...prev, logMsg]);
+        setGameLog((prev: string[]) => [...prev, logMsg]);
 
         setTimeout(() => {
           setEnemyAnimation('');
@@ -252,11 +250,11 @@ export const useGameEngine = () => {
     setEnemy({ ...scaledEnemy, isPlayer: false });
 
     if(bossEnemy) {
-      setGameLog(prev => [...prev, `A ${newEnemy.name} appears! It's a BOSS!`]);
+      setGameLog((prev: string[]) => [...prev, `A ${newEnemy.name} appears! It's a BOSS!`]);
     } else if (miniBossEnemy) {
-      setGameLog(prev => [...prev, `It's a ${newEnemy.name} ?! A Mini-Boss!`]);
+      setGameLog((prev: string[]) => [...prev, `It's a ${newEnemy.name} ?! A Mini-Boss!`]);
     } else {
-      setGameLog(prev => [...prev, `A wild ${newEnemy.name} appears!`]);
+      setGameLog((prev: string[]) => [...prev, `A wild ${newEnemy.name} appears!`]);
     }
   };
 
@@ -272,7 +270,7 @@ export const useGameEngine = () => {
     if (upgrade.stat === 'equipment' && upgrade.equipment) {
       const currentEquip = player.equipment || [];
       setPlayer({ ...player, equipment: [...currentEquip, upgrade.equipment] });
-      setGameLog(prev => [...prev, `Equipped ${upgrade.equipment!.name}!`, `Stat bonuses applied dynamically.`]);
+      setGameLog((prev: string[]) => [...prev, `Equipped ${upgrade.equipment!.name}!`, `Stat bonuses applied dynamically.`]);
       setUpgrades([]);
       handleNextFloor();
       return;
@@ -290,9 +288,9 @@ export const useGameEngine = () => {
         maxXp: player.maxXp,
         equipment: player.equipment 
       });
-      setGameLog(prev => [...prev, `What? ${player.name} is evolving!`, `Congratulations! You evolved into ${evolvedBase.name}!`]);
+      setGameLog((prev: string[]) => [...prev, `What? ${player.name} is evolving!`, `Congratulations! You evolved into ${evolvedBase.name}!`]);
     } else {
-      setPlayer((prev) => {
+      setPlayer((prev: Pokemon | null) => {
         if (!prev) return null;
         const targetStat = upgrade.stat as StatKey; 
         const newStats = {
@@ -314,15 +312,15 @@ export const useGameEngine = () => {
 
     if (player.status === 'freeze') {
       if (Math.random() < 0.2) {
-        setGameLog(prev => [...prev, `${player.name} thawed out!`]);
-        setPlayer(p => p ? { ...p, status: 'normal' } : null);
+        setGameLog((prev: string[]) => [...prev, `${player.name} thawed out!`]);
+        setPlayer((p: Pokemon | null) => p ? { ...p, status: 'normal' } : null);
       } else {
-        setGameLog(prev => [...prev, `${player.name} is frozen solid!`]);
+        setGameLog((prev: string[]) => [...prev, `${player.name} is frozen solid!`]);
         setPlayerTurn(false);
         return;
       }
     } else if (player.status === 'paralyze' && Math.random() < 0.25) {
-      setGameLog(prev => [...prev, `${player.name} is paralyzed! It can't move!`]);
+      setGameLog((prev: string[]) => [...prev, `${player.name} is paralyzed! It can't move!`]);
       setPlayerTurn(false);
       return;
     }
@@ -332,7 +330,7 @@ export const useGameEngine = () => {
     const hitChance = Math.random() * 100;
     if (hitChance > move.accuracy) {
       setTimeout(() => {
-        setGameLog((prev) => [...prev, `${player.name} used ${move.name} but missed!`]);
+        setGameLog((prev: string[]) => [...prev, `${player.name} used ${move.name} but missed!`]);
         setPlayerAnimation(''); 
         setPlayerTurn(false);
       }, 500); 
@@ -342,7 +340,7 @@ export const useGameEngine = () => {
     setTimeout(() => {
       const enemyDodge = getEffectiveStat(enemy, 'dodge');
       if ((Math.random() * 100) < enemyDodge) {
-        setGameLog((prev) => [...prev, `${enemy.name} dodged the attack!`]);
+        setGameLog((prev: string[]) => [...prev, `${enemy.name} dodged the attack!`]);
         setPlayerAnimation(''); 
         setPlayerTurn(false);
         return;
@@ -373,7 +371,7 @@ export const useGameEngine = () => {
         }
       }
 
-      setEnemy((prev) => {
+      setEnemy((prev: Pokemon | null) => {
         if (!prev) return null;
         return { 
           ...prev, 
@@ -392,11 +390,11 @@ export const useGameEngine = () => {
 
       if (player.status === 'burn' || player.status === 'poison') {
         const tickDamage = Math.max(1, Math.floor(player.stats.maxHp * 0.1));
-        setPlayer(p => p ? { ...p, stats: { ...p.stats, hp: Math.max(p.stats.hp - tickDamage, 0) } } : null);
+        setPlayer((p: Pokemon | null) => p ? { ...p, stats: { ...p.stats, hp: Math.max(p.stats.hp - tickDamage, 0) } } : null);
         logMsg += ` ${player.name} took ${tickDamage} damage from its ${player.status}!`;
       }
 
-      setGameLog((prev) => [...prev, logMsg]);
+      setGameLog((prev: string[]) => [...prev, logMsg]);
 
       setTimeout(() => {
         setPlayerAnimation('');
@@ -434,8 +432,6 @@ export const useGameEngine = () => {
   const winner = enemy?.stats.hp === 0 ? 'Player' : 'Enemy';
 
   return {
-    player, enemy, playerTurn, gameLog, floor, upgrades,
-    playerAnimation, enemyAnimation, isGameStarted, highScore,
     startGame, selectStarterAndStart, handleMoveClick, handleSelectUpgrade, setIsGameStarted,
     gameOver, winner
   };

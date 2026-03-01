@@ -4,13 +4,19 @@ import { LootOverlay } from './components/LootOverlay';
 import { PlayerDashboard } from './components/PlayerDashboard'; 
 import { StarterSelection } from './playerPokemonSelection';
 import { useGameEngine } from './hooks/useGameEngine';
+import { useGameStore } from './store/gameStore'; // <-- NEW IMPORT
 import { useEffect, useRef } from 'react';
 import './App.css';
 
 function App() {
+  // 1. Pull the raw DATA directly from the Zustand Store
   const {
     player, enemy, playerTurn, gameLog, floor, upgrades,
-    playerAnimation, enemyAnimation, isGameStarted, highScore,
+    playerAnimation, enemyAnimation, isGameStarted, highScore
+  } = useGameStore();
+
+  // 2. Pull the executable ACTIONS from the Game Engine Controller
+  const {
     startGame, selectStarterAndStart, handleMoveClick, handleSelectUpgrade, setIsGameStarted,
     gameOver, winner
   } = useGameEngine();

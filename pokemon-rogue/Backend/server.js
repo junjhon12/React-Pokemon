@@ -39,15 +39,33 @@ app.get('/api/leaderboard', async (req, res) => {
   }
 });
 
-// POST Route: Submit a new High Score
+// POST Route: Submit or Update a High Score
 app.post('/api/leaderboard', async (req, res) => {
   try {
     const { name, pokemon, pokemonId, floor } = req.body;
     
-    const newScore = new Score({ name, pokemon, pokemonId, floor });
-    await newScore.save();
-    
-    res.status(201).json({ message: 'Score saved successfully!', score: newScore });
+    // Find the player by name. 
+    const existingPlayer = await Score.findOne({ name });
+
+    if (existingPlayer) {
+      // If they exist, ONLY update if their new run is deeper than their old run
+      if (floor > existingPlayer.floor) {
+        existingPlayer.floor = floor;
+        existingPlayer.pokemon = pokemon;
+        existingPlayer.pokemonId = pokemonId;
+        existingPlayer.date = Date.now();
+        await existingPlayer.save();
+        return res.status(200).json({ message: 'High score updated!', score: existingPlayer });
+      } else {
+        // They didn't beat their high score
+        return res.status(200).json({ message: 'Run finished, but did not beat previous high score.', score: existingPlayer });
+      }
+    } else {
+      // Player does not exist yet, create a new entry
+      const newScore = new Score({ name, pokemon, pokemonId, floor });
+      await newScore.save();
+      return res.status(201).json({ message: 'New player registered and score saved!', score: newScore });
+    }
   } catch (error) {
     console.error("Error saving score:", error);
     res.status(500).json({ error: 'Failed to save score' });

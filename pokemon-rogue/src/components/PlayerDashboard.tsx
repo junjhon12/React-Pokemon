@@ -1,15 +1,19 @@
-import { type Pokemon } from '../types/pokemon';
 import { type Move } from '../types/move';
 import { getEffectiveStat } from '../utils/gameLogic';
+import { useGameStore } from '../store/gameStore'; // <-- NEW IMPORT
 
 interface PlayerDashboardProps {
-  player: Pokemon;
-  enemy: Pokemon | null;
-  playerTurn: boolean;
+  // We only pass the action now!
   handleMoveClick: (move: Move) => void;
 }
 
-export const PlayerDashboard = ({ player, enemy, playerTurn, handleMoveClick }: PlayerDashboardProps) => {
+export const PlayerDashboard = ({ handleMoveClick }: PlayerDashboardProps) => {
+  // Pull data directly from the global store
+  const { player, enemy, playerTurn } = useGameStore();
+
+  // Safety fallback since player might be null initially
+  if (!player || !enemy) return null;
+
   return (
     <div className='w-[400px] bg-[#d3d3d3] flex flex-col border-r-4 border-black shrink-0 text-black'>
       {/* Top Stats Area */}
@@ -62,7 +66,7 @@ export const PlayerDashboard = ({ player, enemy, playerTurn, handleMoveClick }: 
               className="w-32 h-32 object-contain pixelated drop-shadow-[0_0_15px_rgba(74,222,128,0.5)] z-10 brightness-150" 
             />
             
-            {/* NEW: Dynamically map all 6 orbital slots */}
+            {/* Dynamically map all 6 orbital slots */}
             {['top-4', 'top-10 right-12', 'bottom-12 right-12', 'bottom-4', 'bottom-12 left-12', 'top-10 left-12'].map((posClass, index) => {
               const item = player.equipment?.[index];
               return (
@@ -90,7 +94,7 @@ export const PlayerDashboard = ({ player, enemy, playerTurn, handleMoveClick }: 
                   </p>
                   <p className="mt-2 font-bold text-gray-300">
                     <span className="text-green-400">
-                      {/* NEW: Calculate Total Stats on the fly for the UI */}
+                      {/* Calculate Total Stats on the fly for the UI */}
                       {Object.entries(
                         player.equipment.reduce((acc, curr) => {
                           Object.entries(curr.statModifiers).forEach(([stat, val]) => {
@@ -114,7 +118,7 @@ export const PlayerDashboard = ({ player, enemy, playerTurn, handleMoveClick }: 
 
       {/* Bottom Left Moves Area */}
       <div className='h-[250px] bg-[#1a1a24] p-4 flex flex-col justify-end border-t-4 border-black'>
-        {(!player || !enemy) ? null : playerTurn ? (
+        {playerTurn ? (
           <div className="grid grid-cols-2 gap-2 h-full">
             {player.moves?.map((move, index) => (
               <button

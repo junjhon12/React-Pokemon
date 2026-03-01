@@ -47,9 +47,6 @@ function App() {
           {/* LEFT PANEL: Player Dashboard */}
           {player && (
             <PlayerDashboard 
-              player={player} 
-              enemy={enemy} 
-              playerTurn={playerTurn} 
               handleMoveClick={handleMoveClick} 
             />
           )}

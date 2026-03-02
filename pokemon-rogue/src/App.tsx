@@ -8,6 +8,10 @@ import { useGameStore } from './store/gameStore';
 import { useEffect, useRef } from 'react';
 import './App.css';
 
+const API_URL = import.meta.env.PROD 
+  ? 'https://pokemon-rogue-api.onrender.com' // <-- Replace with your ACTUAL Render URL
+  : 'http://localhost:5000';
+
 function App() {
   const {
     player, enemy, playerTurn, gameLog, floor, upgrades,
@@ -31,26 +35,27 @@ function App() {
   const handleFinishRun = async () => {
     if (!player) return;
 
-    // 1. Grab the secure JWT token from memory
+    // 1. Grab the secure JWT token from memory that Google gave us
     const token = localStorage.getItem('rogue-google-token');
 
-    // 2. Reject them if they aren't logged in
+    // 2. Reject the save if they aren't logged in
+    // This prevents "Guest" scores from cluttering your verified DB
     if (!token) {
-      alert("You must be logged in with Google to record your run on the Global Leaderboard!");
+      alert("Please log in with Google to save your score to the Global Leaderboard!");
       setIsGameStarted('START');
       return;
     }
 
     // 3. Send the secure request with the Authorization header
     try {
-      const response = await fetch('http://localhost:5000/api/leaderboard', {
+      const response = await fetch(`${API_URL}/api/leaderboard`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}` // <-- Handing the VIP pass to the bouncer
+          'Authorization': `Bearer ${token}` // The "Bouncer" on the backend checks this
         },
         body: JSON.stringify({
-          // The backend gets the true name from the token now!
+          // We don't send the name! The backend extracts it from the token securely.
           pokemon: player.name.charAt(0).toUpperCase() + player.name.slice(1),
           pokemonId: player.id,
           floor: floor
@@ -58,22 +63,23 @@ function App() {
       });
 
       if (!response.ok) {
-        // If the token is expired or fake, clear it and force a re-login
+        // Handle session expiration (usually after 1 hour)
         if (response.status === 401 || response.status === 403) {
            localStorage.removeItem('rogue-google-token');
            localStorage.removeItem('rogue-player-name');
-           alert("Your session expired. Please log in again.");
+           alert("Your Google session expired. Please log in again to save future runs.");
         }
         throw new Error('Server rejected the secure request');
       }
       
       const data = await response.json();
-      console.log(data.message); 
+      console.log("Database Response:", data.message); 
       
     } catch (error) {
       console.error("❌ Failed to save secure score:", error);
     }
 
+    // 4. Return to the Start Screen (Leaderboard will auto-refresh)
     setIsGameStarted('START');
   };
 

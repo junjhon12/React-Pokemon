@@ -2,6 +2,10 @@ import { useState, useEffect } from 'react';
 import { GoogleLogin } from '@react-oauth/google';
 import { jwtDecode } from 'jwt-decode';
 
+const API_URL = import.meta.env.PROD 
+  ? 'https://pokemon-rogue-api.onrender.com' // <-- Replace with your ACTUAL Render URL
+  : 'http://localhost:5000';
+
 interface LeaderboardEntry {
   _id: string;
   name: string;
@@ -25,7 +29,7 @@ export const StartScreen = ({ highScore, startGame }: StartScreenProps) => {
   useEffect(() => {
     const fetchLeaderboard = async () => {
       try {
-        const response = await fetch('http://localhost:5000/api/leaderboard');
+        const response = await fetch(`${API_URL}/api/leaderboard`);
         if (!response.ok) throw new Error('Network response was not ok');
         const data = await response.json();
         setLeaderboard(data);

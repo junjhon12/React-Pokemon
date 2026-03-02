@@ -3,7 +3,7 @@ import { GoogleLogin } from '@react-oauth/google';
 import { jwtDecode } from 'jwt-decode';
 
 const API_URL = import.meta.env.PROD 
-  ? 'https://pokemon-rogue-api.onrender.com' // <-- Replace with your ACTUAL Render URL
+  ? 'https://pokemon-rogue-api.onrender.com' 
   : 'http://localhost:5000';
 
 interface LeaderboardEntry {

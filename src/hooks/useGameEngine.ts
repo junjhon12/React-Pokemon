@@ -22,7 +22,7 @@ export const useGameEngine = () => {
   const setUpgrades = (val: Upgrade[] | ((u: Upgrade[]) => Upgrade[])) => useGameStore.setState(typeof val === 'function' ? (s) => ({ upgrades: val(s.upgrades) }) : { upgrades: val });
   const setPlayerAnimation = (val: string | ((a: string) => string)) => useGameStore.setState(typeof val === 'function' ? (s) => ({ playerAnimation: val(s.playerAnimation) }) : { playerAnimation: val });
   const setEnemyAnimation = (val: string | ((a: string) => string)) => useGameStore.setState(typeof val === 'function' ? (s) => ({ enemyAnimation: val(s.enemyAnimation) }) : { enemyAnimation: val });
-  const setIsGameStarted = (val: 'MENU' | 'SELECT' | 'BATTLE') => useGameStore.setState({ isGameStarted: val });
+  const setIsGameStarted = (val: 'START' | 'SELECT' | 'BATTLE') => useGameStore.setState({ isGameStarted: val });
   
   const setHighScore = useCallback((val: number | ((s: number) => number)) => {
      const newScore = typeof val === 'function' ? val(highScore) : val;

@@ -8,19 +8,9 @@ import { useGameStore } from './store/gameStore';
 import { useEffect, useRef } from 'react';
 import './App.css';
 
-<<<<<<< HEAD:pokemon-rogue/src/App.tsx
-<<<<<<< HEAD:pokemon-rogue/src/App.tsx
 const API_URL = import.meta.env.PROD 
   ? 'https://pokemon-rogue-api.onrender.com' // <-- Replace with your ACTUAL Render URL
   : 'http://localhost:5000';
-=======
-const API_URL = "https://quoc-pokemon-game-api.onrender.com/"
->>>>>>> d03dc11 (refactor: move all content into pokemon-rogue directory):src/App.tsx
-=======
-const API_URL = import.meta.env.PROD 
-  ? 'https://pokemon-rogue-api.onrender.com' // <-- Replace with your ACTUAL Render URL
-  : 'http://localhost:5000';
->>>>>>> 707c3dd (fix: update app icons and configure netlify redirects):src/App.tsx
 
 function App() {
   const {

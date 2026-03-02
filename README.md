@@ -5,7 +5,7 @@
 ![TailwindCSS](https://img.shields.io/badge/tailwindcss-%2338B2AC.svg?style=for-the-badge&logo=tailwind-css&logoColor=white)
 ![Vite](https://img.shields.io/badge/vite-%23646CFF.svg?style=for-the-badge&logo=vite&logoColor=white)
 
-**[🎮 Play the Live Demo Here]** *(Insert your Vercel/Netlify link here)*
+**[🎮 Play the Live Demo Here]** [*(Insert your Vercel/Netlify link here)*](https://69a5a72f18b9fa0008239684--pokemon-deep.netlify.app/)
 
 ![Gameplay Demo](./public/demo.gif) *(Capture a 10-second GIF of the battle loop and put it in your public folder)*
 

@@ -71,7 +71,6 @@ function App() {
       console.error("❌ Failed to save secure score:", error);
     }
 
-    // 4. Return to the Start Screen (Leaderboard will auto-refresh)
     setIsGameStarted('START');
   };
 

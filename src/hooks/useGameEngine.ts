@@ -149,7 +149,7 @@ export const useGameEngine = () => {
 
       fetchLoot();
     }
-  }, [enemy?.stats.hp, enemy, floor, player, upgrades.length]);
+  }, [enemy?.stats.hp]);
 
   useEffect(() => {
     if (playerTurn || !enemy || !player) return;

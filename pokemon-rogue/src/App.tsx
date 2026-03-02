@@ -14,7 +14,7 @@ const API_URL = import.meta.env.PROD
 
 function App() {
   const {
-    player, enemy, playerTurn, gameLog, floor, upgrades,
+    player, enemy, gameLog, floor, upgrades,
     playerAnimation, enemyAnimation, isGameStarted, highScore
   } = useGameStore();
 

@@ -51,7 +51,7 @@ export const StartScreen = ({ highScore, startGame }: StartScreenProps) => {
   };
 
   return (
-    <div className='w-full max-w-5xl h-[600px] flex border-4 border-black rounded-lg overflow-hidden shadow-2xl font-mono'>
+    <div className='w-full max-w-5xl h-150 flex border-4 border-black rounded-lg overflow-hidden shadow-2xl font-mono'>
       
       {/* LEFT COLUMN: The Global Leaderboard */}
       <div className='w-1/2 bg-gray-900 border-r-4 border-black p-8 flex flex-col'>
@@ -155,7 +155,7 @@ export const StartScreen = ({ highScore, startGame }: StartScreenProps) => {
             onClick={startGame}
             className='group relative inline-flex items-center justify-center px-12 py-6 font-bold text-white transition-all duration-200 bg-red-600 border-4 border-white rounded-xl hover:bg-red-500 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-600 active:scale-95 cursor-pointer'
           >
-            <span className='absolute inset-0 w-full h-full -mt-1 rounded-lg opacity-30 bg-gradient-to-b from-transparent via-transparent to-black'></span>
+            <span className='absolute inset-0 w-full h-full -mt-1 rounded-lg opacity-30 bg-linear-to-b from-transparent via-transparent to-black'></span>
             <span className='relative text-2xl tracking-widest'>START RUN</span>
           </button>
         </div>

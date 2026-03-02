@@ -9,7 +9,7 @@ import { useEffect, useRef } from 'react';
 import './App.css';
 
 const API_URL = import.meta.env.PROD 
-  ? 'https://pokemon-rogue-api.onrender.com'
+  ? 'https://pokemon-rogue-api.onrender.com' // <-- Replace with your ACTUAL Render URL
   : 'http://localhost:5000';
 
 function App() {

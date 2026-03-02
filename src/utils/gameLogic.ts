@@ -51,7 +51,7 @@ const UPGRADES: Upgrade[] = [
 ];
 
 export const getRandomUpgrades = (count: number, playerId?: number): Upgrade[] => {
-  let currentPool = [...UPGRADES];
+  const currentPool = [...UPGRADES];
   // Shuffle the array and take the first 'count' items
   if (playerId && EVOLUTION_MAP[playerId]) {
     currentPool.push({

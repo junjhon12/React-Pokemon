@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useCallback } from 'react';
 import { type Pokemon, type StatKey } from '../types/pokemon';
 import type { Upgrade } from '../types/upgrade';
 import type { Move } from '../types/move';
@@ -10,26 +10,48 @@ import { useGameStore } from '../store/gameStore'; // <-- NEW IMPORT
 export const useGameEngine = () => {
   // Pull state from Zustand
   const {
-    player, enemy, playerTurn, gameLog, floor, upgrades,
-    playerAnimation, enemyAnimation, isGameStarted, highScore
+    player, enemy, playerTurn, floor, upgrades, highScore
   } = useGameStore();
 
   // Zustand wrappers to mimic React's setState so we don't break the combat math
-  const setPlayer = (val: any) => useGameStore.setState(typeof val === 'function' ? (s) => ({ player: val(s.player) }) : { player: val });
-  const setEnemy = (val: any) => useGameStore.setState(typeof val === 'function' ? (s) => ({ enemy: val(s.enemy) }) : { enemy: val });
-  const setPlayerTurn = (val: any) => useGameStore.setState(typeof val === 'function' ? (s) => ({ playerTurn: val(s.playerTurn) }) : { playerTurn: val });
-  const setGameLog = (val: any) => useGameStore.setState(typeof val === 'function' ? (s) => ({ gameLog: val(s.gameLog) }) : { gameLog: val });
-  const setFloor = (val: any) => useGameStore.setState(typeof val === 'function' ? (s) => ({ floor: val(s.floor) }) : { floor: val });
-  const setUpgrades = (val: any) => useGameStore.setState(typeof val === 'function' ? (s) => ({ upgrades: val(s.upgrades) }) : { upgrades: val });
-  const setPlayerAnimation = (val: any) => useGameStore.setState(typeof val === 'function' ? (s) => ({ playerAnimation: val(s.playerAnimation) }) : { playerAnimation: val });
-  const setEnemyAnimation = (val: any) => useGameStore.setState(typeof val === 'function' ? (s) => ({ enemyAnimation: val(s.enemyAnimation) }) : { enemyAnimation: val });
-  const setIsGameStarted = (val: any) => useGameStore.setState(typeof val === 'function' ? (s) => ({ isGameStarted: val(s.isGameStarted) }) : { isGameStarted: val });
+  const setPlayer = (val: Pokemon | null | ((p: Pokemon | null) => Pokemon | null)) => useGameStore.setState(typeof val === 'function' ? (s) => ({ player: val(s.player) }) : { player: val });
+  const setEnemy = (val: Pokemon | null | ((e: Pokemon | null) => Pokemon | null)) => useGameStore.setState(typeof val === 'function' ? (s) => ({ enemy: val(s.enemy) }) : { enemy: val });
+  const setPlayerTurn = (val: boolean | ((t: boolean) => boolean)) => useGameStore.setState(typeof val === 'function' ? (s) => ({ playerTurn: val(s.playerTurn) }) : { playerTurn: val });
+  const setGameLog = (val: string[] | ((l: string[]) => string[])) => useGameStore.setState(typeof val === 'function' ? (s) => ({ gameLog: val(s.gameLog) }) : { gameLog: val });
+  const setFloor = (val: number | ((f: number) => number)) => useGameStore.setState(typeof val === 'function' ? (s) => ({ floor: val(s.floor) }) : { floor: val });
+  const setUpgrades = (val: Upgrade[] | ((u: Upgrade[]) => Upgrade[])) => useGameStore.setState(typeof val === 'function' ? (s) => ({ upgrades: val(s.upgrades) }) : { upgrades: val });
+  const setPlayerAnimation = (val: string | ((a: string) => string)) => useGameStore.setState(typeof val === 'function' ? (s) => ({ playerAnimation: val(s.playerAnimation) }) : { playerAnimation: val });
+  const setEnemyAnimation = (val: string | ((a: string) => string)) => useGameStore.setState(typeof val === 'function' ? (s) => ({ enemyAnimation: val(s.enemyAnimation) }) : { enemyAnimation: val });
+  const setIsGameStarted = (val: 'MENU' | 'SELECT' | 'BATTLE') => useGameStore.setState({ isGameStarted: val });
   
-  const setHighScore = (val: any) => {
+  const setHighScore = useCallback((val: number | ((s: number) => number)) => {
      const newScore = typeof val === 'function' ? val(highScore) : val;
      localStorage.setItem('rogue-score', newScore.toString());
      useGameStore.setState({ highScore: newScore });
-  };
+  }, [highScore]);
+
+  function handleLevelUp(currentStats: Pokemon, overflowXp: number) {
+      const newLevel = (currentStats.level || 1) + 1;
+      const growthRate = 0.1; 
+      const newMaxHp = Math.floor(currentStats.stats.maxHp * (1 + growthRate));
+      const newAttack = Math.floor(currentStats.stats.attack * (1 + growthRate));
+      const newSpeed = Math.floor(currentStats.stats.speed * (1 + growthRate));
+      const newMaxXp = Math.floor((currentStats.maxXp || 100) * 1.2);
+
+      return {
+        ...currentStats,
+        level: newLevel,
+        stats: {
+          ...currentStats.stats,
+          maxHp: newMaxHp,
+          hp: newMaxHp,
+          attack: newAttack,
+          speed: newSpeed
+        },
+        xp: overflowXp,
+        maxXp: newMaxXp
+      };
+    };
 
   useEffect(() => {
     if (player && player.stats.hp === 0) {
@@ -37,7 +59,7 @@ export const useGameEngine = () => {
         setHighScore(floor);
       }
     }
-  }, [player?.stats.hp]);
+  }, [player?.stats.hp, floor, highScore, player, setHighScore]);
 
   const startGame = () => setIsGameStarted('SELECT');
 
@@ -75,7 +97,7 @@ export const useGameEngine = () => {
         let newPlayer = { ...player };
         const currentXp = newPlayer.xp || 0;
         const currentMaxXp = newPlayer.maxXp || 100;
-        let totalXp = currentXp + xpGain;
+        const totalXp = currentXp + xpGain;
 
         if (totalXp >= currentMaxXp) {
           const overflow = totalXp - currentMaxXp;
@@ -127,7 +149,7 @@ export const useGameEngine = () => {
 
       fetchLoot();
     }
-  }, [enemy?.stats.hp]);
+  }, [enemy?.stats.hp, enemy, floor, player, upgrades.length]);
 
   useEffect(() => {
     if (playerTurn || !enemy || !player) return;
@@ -235,7 +257,7 @@ export const useGameEngine = () => {
                      Math.floor(Math.random() * 151) + 1;
     const newEnemy = await getRandomPokemon(randomId);
 
-    let scaledEnemy = scaleEnemyStats(newEnemy, targetFloor);
+    const scaledEnemy = scaleEnemyStats(newEnemy, targetFloor);
 
     if (bossEnemy) {
       scaledEnemy.stats.hp = Math.floor(scaledEnemy.stats.hp * 1.5);
@@ -403,29 +425,6 @@ export const useGameEngine = () => {
       }, 400); 
 
     }, 300); 
-  };
-
-  const handleLevelUp = (currentStats: Pokemon, overflowXp: number) => {
-    const newLevel = (currentStats.level || 1) + 1;
-    const growthRate = 0.1; 
-    const newMaxHp = Math.floor(currentStats.stats.maxHp * (1 + growthRate));
-    const newAttack = Math.floor(currentStats.stats.attack * (1 + growthRate));
-    const newSpeed = Math.floor(currentStats.stats.speed * (1 + growthRate));
-    const newMaxXp = Math.floor((currentStats.maxXp || 100) * 1.2);
-
-    return {
-      ...currentStats,
-      level: newLevel,
-      stats: {
-        ...currentStats.stats,
-        maxHp: newMaxHp,
-        hp: newMaxHp,
-        attack: newAttack,
-        speed: newSpeed
-      },
-      xp: overflowXp,
-      maxXp: newMaxXp
-    };
   };
 
   const gameOver = player?.stats.hp === 0 || enemy?.stats.hp === 0;

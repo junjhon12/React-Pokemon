@@ -99,7 +99,7 @@ export const StartScreen = ({ highScore, startGame }: StartScreenProps) => {
                   onSuccess={(credentialResponse) => {
                     if (credentialResponse.credential) {
                       // Decode the JWT to get their real Google name
-                      const decoded = jwtDecode(credentialResponse.credential) as any;
+                      const decoded = jwtDecode(credentialResponse.credential) as { name: string };
                       // Strip spaces and limit length to keep the UI unbreakable
                       const googleName = decoded.name.replace(/\s+/g, '').slice(0, 15); 
                       

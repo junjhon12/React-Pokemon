@@ -1,12 +1,23 @@
 import { useEffect, useState } from 'react';
 import { fetchPokemonCard } from './utils/api'; 
 
+// 1. Interfaces go OUTSIDE the component
+interface TCGCard {
+  id: string;
+  name: string;
+  image?: string;
+  dexId?: number[];
+}
+
 interface StarterSelectionProps {
   onSelectStarter: (pokedexId: number) => void; 
 }
 
+// 2. The component function starts here
 export const StarterSelection = ({ onSelectStarter }: StarterSelectionProps) => {
-  const [cards, setCards] = useState<any[]>([]);
+  
+  // 3. The Hook goes INSIDE the component (this replaces the 'any' line)
+  const [cards, setCards] = useState<TCGCard[]>([]);
 
   useEffect(() => {
     const getCards = async () => {

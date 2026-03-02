@@ -12,7 +12,7 @@ const wait = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
 export const useGameEngine = () => {
   const {
-    player, enemy, playerTurn, floor, upgrades, highScore
+    player, enemy, playerTurn, floor, highScore
   } = useGameStore();
 
   const setPlayer = (val: Pokemon | null | ((p: Pokemon | null) => Pokemon | null)) => useGameStore.setState(typeof val === 'function' ? (s) => ({ player: val(s.player) }) : { player: val });
@@ -239,7 +239,7 @@ export const useGameEngine = () => {
       }
     }
 
-    let remainingHp = Math.max(currentPlayer.stats.hp - finalDamage, 0);
+    const remainingHp = Math.max(currentPlayer.stats.hp - finalDamage, 0);
 
     let logMsg = `${currentEnemy.name} used ${randomMove.name} for ${finalDamage} damage!`;
     if (isCrit) logMsg += " A Critical Hit!";
@@ -336,7 +336,7 @@ export const useGameEngine = () => {
       }
     }
 
-    let remainingEnemyHp = Math.max(enemy.stats.hp - finalDamage, 0);
+    const remainingEnemyHp = Math.max(enemy.stats.hp - finalDamage, 0);
 
     let logMsg = `${player.name} used ${move.name} for ${finalDamage} damage!`;
     if (isCrit) logMsg += " A Critical Hit!";

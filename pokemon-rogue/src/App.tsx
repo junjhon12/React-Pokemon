@@ -38,14 +38,6 @@ function App() {
     // 1. Grab the secure JWT token from memory that Google gave us
     const token = localStorage.getItem('rogue-google-token');
 
-    // 2. Reject the save if they aren't logged in
-    // This prevents "Guest" scores from cluttering your verified DB
-    if (!token) {
-      alert("Please log in with Google to save your score to the Global Leaderboard!");
-      setIsGameStarted('START');
-      return;
-    }
-
     // 3. Send the secure request with the Authorization header
     try {
       const response = await fetch(`${API_URL}/api/leaderboard`, {

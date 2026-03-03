@@ -7,7 +7,6 @@ import { scaleEnemyStats, getRandomUpgrades, getTypeEffectiveness, EVOLUTION_MAP
 import { ITEM_POOL } from '../data/items';
 import { useGameStore } from '../store/gameStore';
 
-// The secret weapon: an async delay helper to replace nested setTimeouts
 const wait = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
 export const useGameEngine = () => {
@@ -56,6 +55,7 @@ export const useGameEngine = () => {
 
   const startGame = () => setIsGameStarted('SELECT');
 
+  // FIX 1: Trigger executeEnemyTurn if the enemy is faster at the start
   const selectStarterAndStart = async (starterId: number) => {
     setFloor(1);
     setGameLog(['Welcome to the Dungeon!', 'Battle Start!']);
@@ -71,6 +71,7 @@ export const useGameEngine = () => {
 
     setPlayer(playerMon);
     setEnemy(enemyMon);
+    setIsGameStarted('BATTLE');
 
     if (p1.stats.speed >= p2.stats.speed) {
       setPlayerTurn(true);
@@ -78,13 +79,13 @@ export const useGameEngine = () => {
     } else {
       setPlayerTurn(false);
       setGameLog((prev: string[]) => [...prev, `${p2.name} is faster!`]);
+      // Trigger enemy turn logic immediately
+      executeEnemyTurn(playerMon, enemyMon);
     }
-    
-    setIsGameStarted('BATTLE');
   };
 
   const spawnNewEnemy = async (targetFloor: number) => {
-    setEnemy(null);
+    // Note: Removed setEnemy(null) to prevent the screen from going blank during the fetch
     setPlayerTurn(true);
 
     const bossEnemy = targetFloor % 10 === 0;
@@ -110,13 +111,11 @@ export const useGameEngine = () => {
 
     setEnemy({ ...scaledEnemy, isPlayer: false });
 
-    if(bossEnemy) {
-      setGameLog((prev: string[]) => [...prev, `A ${newEnemy.name} appears! It's a BOSS!`]);
-    } else if (miniBossEnemy) {
-      setGameLog((prev: string[]) => [...prev, `It's a ${newEnemy.name} ?! A Mini-Boss!`]);
-    } else {
-      setGameLog((prev: string[]) => [...prev, `A wild ${newEnemy.name} appears!`]);
-    }
+    const appearanceMsg = bossEnemy ? `A ${newEnemy.name} appears! It's a BOSS!` :
+                         miniBossEnemy ? `It's a ${newEnemy.name} ?! A Mini-Boss!` :
+                         `A wild ${newEnemy.name} appears!`;
+    
+    setGameLog((prev: string[]) => [...prev, appearanceMsg]);
   };
 
   const handleNextFloor = () => {
@@ -150,7 +149,6 @@ export const useGameEngine = () => {
       let equipment = await fetchEquipmentFromPokeAPI(randomItemName);
       
       if (!equipment) {
-        console.warn("PokeAPI failed to fetch item. Using local fallback.");
         equipment = {
           id: `local-${randomItemName}`,
           name: randomItemName.replace('-', ' ').toUpperCase(),
@@ -179,7 +177,8 @@ export const useGameEngine = () => {
   };
 
   const executeEnemyTurn = async (currentPlayer: Pokemon, currentEnemy: Pokemon) => {
-    await wait(1000);
+    // FIX 2: Reduced delay from 1000ms to 500ms for faster gameplay
+    await wait(500);
 
     if (currentEnemy.status === 'freeze') {
       if (Math.random() < 0.2) {
@@ -202,6 +201,9 @@ export const useGameEngine = () => {
       ? enemyMoves[Math.floor(Math.random() * enemyMoves.length)]
       : { name: 'Tackle', power: 40, accuracy: 100, type: 'normal' } as Move;
 
+    // FIX 3: Push log message before waiting for animation
+    setGameLog((prev: string[]) => [...prev, `${currentEnemy.name} prepares to use ${randomMove.name}!`]);
+
     setEnemyAnimation('animate-lunge-left');
     await wait(300);
 
@@ -209,7 +211,6 @@ export const useGameEngine = () => {
     if ((Math.random() * 100) < playerDodge) {
       setGameLog((prev: string[]) => [...prev, `${currentPlayer.name} dodged the attack!`]);
       setEnemyAnimation('');
-      setPlayerAnimation('');
       setPlayerTurn(true);
       return;
     }
@@ -217,9 +218,7 @@ export const useGameEngine = () => {
     const enemyCrit = getEffectiveStat(currentEnemy, 'critChance');
     const isCrit = (Math.random() * 100) < enemyCrit;
     const critMultiplier = isCrit ? 1.5 : 1;
-
     const effectiveness = getTypeEffectiveness(randomMove.type, currentPlayer.types);
-    
     const playerDef = getEffectiveStat(currentPlayer, 'defense');
     const defenseMitigation = 100 / (100 + playerDef);
     const enemyAtk = getEffectiveStat(currentEnemy, 'attack');
@@ -240,17 +239,10 @@ export const useGameEngine = () => {
     }
 
     const remainingHp = Math.max(currentPlayer.stats.hp - finalDamage, 0);
-
-    let logMsg = `${currentEnemy.name} used ${randomMove.name} for ${finalDamage} damage!`;
+    let logMsg = `${currentEnemy.name} dealt ${finalDamage} damage!`;
     if (isCrit) logMsg += " A Critical Hit!";
     if (effectiveness > 1) logMsg += " It's Super Effective!";
     if (statusLog) logMsg += statusLog;
-
-    if (currentEnemy.status === 'burn' || currentEnemy.status === 'poison') {
-      const tickDamage = Math.max(1, Math.floor(currentEnemy.stats.maxHp * 0.1));
-      setEnemy((e: Pokemon | null) => e ? { ...e, stats: { ...e.stats, hp: Math.max(e.stats.hp - tickDamage, 0) } } : null);
-      logMsg += ` ${currentEnemy.name} took ${tickDamage} damage from its ${currentEnemy.status}!`;
-    }
 
     setPlayer((prev: Pokemon | null) => prev ? { ...prev, stats: { ...prev.stats, hp: remainingHp }, status: appliedStatus } : null);
     setGameLog((prev: string[]) => [...prev, logMsg]);
@@ -271,14 +263,13 @@ export const useGameEngine = () => {
     if (!player || !enemy || !playerTurn) return;
 
     setPlayerTurn(false);
-
-    let updatedPlayer = player;
+    let updatedPlayer = { ...player };
 
     if (player.status === 'freeze') {
       if (Math.random() < 0.2) {
         setGameLog((prev: string[]) => [...prev, `${player.name} thawed out!`]);
-        setPlayer((p: Pokemon | null) => p ? { ...p, status: 'normal' } : null);
-        updatedPlayer = { ...player, status: 'normal' };
+        updatedPlayer.status = 'normal';
+        setPlayer(updatedPlayer);
       } else {
         setGameLog((prev: string[]) => [...prev, `${player.name} is frozen solid!`]);
         await executeEnemyTurn(updatedPlayer, enemy);
@@ -291,11 +282,12 @@ export const useGameEngine = () => {
     }
 
     setPlayerAnimation('animate-lunge-right');
+    setGameLog((prev: string[]) => [...prev, `${player.name} used ${move.name}!`]);
 
     const hitChance = Math.random() * 100;
     if (hitChance > move.accuracy) {
       await wait(300);
-      setGameLog((prev: string[]) => [...prev, `${player.name} used ${move.name} but missed!`]);
+      setGameLog((prev: string[]) => [...prev, `${player.name} missed!`]);
       setPlayerAnimation(''); 
       await executeEnemyTurn(updatedPlayer, enemy);
       return;
@@ -305,7 +297,7 @@ export const useGameEngine = () => {
 
     const enemyDodge = getEffectiveStat(enemy, 'dodge');
     if ((Math.random() * 100) < enemyDodge) {
-      setGameLog((prev: string[]) => [...prev, `${enemy.name} dodged the attack!`]);
+      setGameLog((prev: string[]) => [...prev, `${enemy.name} dodged!`]);
       setPlayerAnimation(''); 
       await executeEnemyTurn(updatedPlayer, enemy);
       return;
@@ -314,9 +306,7 @@ export const useGameEngine = () => {
     const playerCrit = getEffectiveStat(player, 'critChance');
     const isCrit = (Math.random() * 100) < playerCrit;
     const critMultiplier = isCrit ? 1.5 : 1; 
-
     const effectiveness = getTypeEffectiveness(move.type, enemy.types);
-    
     const enemyDef = getEffectiveStat(enemy, 'defense');
     const defenseMitigation = 100 / (100 + enemyDef);
     const playerAtk = getEffectiveStat(player, 'attack');
@@ -337,20 +327,19 @@ export const useGameEngine = () => {
     }
 
     const remainingEnemyHp = Math.max(enemy.stats.hp - finalDamage, 0);
-
-    let logMsg = `${player.name} used ${move.name} for ${finalDamage} damage!`;
+    let logMsg = `It dealt ${finalDamage} damage!`;
     if (isCrit) logMsg += " A Critical Hit!";
     if (effectiveness > 1) logMsg += " It's Super Effective!";
     if (statusLog) logMsg += statusLog;
 
+    // Handle tick damage for player before finalizing turn
     if (player.status === 'burn' || player.status === 'poison') {
       const tickDamage = Math.max(1, Math.floor(player.stats.maxHp * 0.1));
-      const remainingPlayerHp = Math.max(player.stats.hp - tickDamage, 0);
-      setPlayer((p: Pokemon | null) => p ? { ...p, stats: { ...p.stats, hp: remainingPlayerHp } } : null);
-      logMsg += ` ${player.name} took ${tickDamage} damage from its ${player.status}!`;
-      updatedPlayer = { ...player, stats: { ...player.stats, hp: remainingPlayerHp } };
+      updatedPlayer.stats.hp = Math.max(player.stats.hp - tickDamage, 0);
+      setPlayer(updatedPlayer);
+      logMsg += ` ${player.name} took ${tickDamage} damage from ${player.status}!`;
       
-      if (remainingPlayerHp <= 0) {
+      if (updatedPlayer.stats.hp <= 0) {
         if (floor > highScore) setHighScore(floor);
         setGameLog((prev: string[]) => [...prev, logMsg]);
         return; 

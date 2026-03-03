@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { GoogleLogin } from '@react-oauth/google';
 import { jwtDecode } from 'jwt-decode';
+import { useGameStore } from '../store/gameStore';
 
 const API_URL = import.meta.env.PROD 
   ? 'https://pokemon-rogue-api.onrender.com' 
@@ -23,8 +24,21 @@ export const StartScreen = ({ highScore, startGame }: StartScreenProps) => {
   const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   
-  // Check if they are already logged in from a previous session
-  const [loggedInUser, setLoggedInUser] = useState<string | null>(localStorage.getItem('rogue-player-name'));
+  // Bring in the global state and setter
+  const { setUserProfile, userProfile } = useGameStore();
+
+  // Initialize global state if there is already a user in local storage on first load
+  useEffect(() => {
+    const savedName = localStorage.getItem('rogue-player-name');
+    // If we have a saved name but the global store is empty, sync them up
+    if (savedName && !userProfile) {
+       setUserProfile({
+         name: savedName,
+         email: '', // Email isn't strictly needed for the UI, just the backend token
+         picture: '' 
+       });
+    }
+  }, [userProfile, setUserProfile]);
 
   useEffect(() => {
     const fetchLeaderboard = async () => {
@@ -43,11 +57,31 @@ export const StartScreen = ({ highScore, startGame }: StartScreenProps) => {
     fetchLeaderboard();
   }, []);
 
+  // Unified login handler
+  const handleLoginSuccess = (credentialResponse: any) => {
+    if (credentialResponse.credential) {
+      // 1. Decode the token
+      const decoded: any = jwtDecode(credentialResponse.credential);
+      const googleName = decoded.name.replace(/\s+/g, '').slice(0, 15);
+      
+      // 2. Save to global state
+      setUserProfile({
+        name: googleName,
+        email: decoded.email,
+        picture: decoded.picture
+      });
+
+      // 3. Save to localStorage for persistence
+      localStorage.setItem('rogue-player-name', googleName);
+      localStorage.setItem('rogue-google-token', credentialResponse.credential);
+    }
+  };
+
   // Handle manual disconnect
   const handleLogout = () => {
     localStorage.removeItem('rogue-player-name');
     localStorage.removeItem('rogue-google-token');
-    setLoggedInUser(null);
+    setUserProfile(null); // Clear the global state
   };
 
   return (
@@ -89,26 +123,15 @@ export const StartScreen = ({ highScore, startGame }: StartScreenProps) => {
 
         {/* Auth Section */}
         <div className='mt-6 pt-6 border-t-4 border-gray-700'>
-          {!loggedInUser ? (
+          {/* Use the global state `userProfile` to check login status instead of local state */}
+          {!userProfile ? (
             <>
               <p className='text-xs text-gray-400 mb-3 text-center uppercase tracking-widest'>
                 Login to record your runs
               </p>
               <div className="flex justify-center">
                 <GoogleLogin
-                  onSuccess={(credentialResponse) => {
-                    if (credentialResponse.credential) {
-                      // Decode the JWT to get their real Google name
-                      const decoded = jwtDecode(credentialResponse.credential) as { name: string };
-                      // Strip spaces and limit length to keep the UI unbreakable
-                      const googleName = decoded.name.replace(/\s+/g, '').slice(0, 15); 
-                      
-                      // Save the name for the UI, and the token for the backend
-                      localStorage.setItem('rogue-player-name', googleName);
-                      localStorage.setItem('rogue-google-token', credentialResponse.credential);
-                      setLoggedInUser(googleName);
-                    }
-                  }}
+                  onSuccess={handleLoginSuccess}
                   onError={() => {
                     console.error('Login Failed');
                   }}
@@ -119,8 +142,11 @@ export const StartScreen = ({ highScore, startGame }: StartScreenProps) => {
             </>
           ) : (
             <div className="text-center">
-              <p className="text-sm text-green-400 font-bold uppercase tracking-widest mb-2">
-                ACTIVE LINK: {loggedInUser}
+              <p className="text-sm text-green-400 font-bold uppercase tracking-widest mb-2 flex items-center justify-center gap-2">
+                {userProfile.picture && (
+                  <img src={userProfile.picture} alt="profile" className="w-6 h-6 rounded-full border border-green-400" />
+                )}
+                ACTIVE LINK: {userProfile.name}
               </p>
               <button 
                 onClick={handleLogout}

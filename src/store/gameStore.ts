@@ -2,8 +2,18 @@ import { create } from 'zustand';
 import type { Pokemon } from '../types/pokemon';
 import type { Upgrade } from '../types/upgrade';
 
+// Define the shape of the user profile we get from Google
+export interface UserProfile {
+  name: string;
+  email: string;
+  picture: string;
+}
+
 // 1. Define the shape of our entire game's state
 interface GameState {
+  // User State
+  userProfile: UserProfile | null;
+
   // Data State
   player: Pokemon | null;
   enemy: Pokemon | null;
@@ -18,7 +28,8 @@ interface GameState {
   playerAnimation: string;
   enemyAnimation: string;
 
-  // Simple Actions (The complex logic will stay in the engine hook for now)
+  // Actions
+  setUserProfile: (profile: UserProfile | null) => void;
   setPlayer: (player: Pokemon | null) => void;
   setEnemy: (enemy: Pokemon | null) => void;
   setFloor: (floor: number) => void;
@@ -34,6 +45,7 @@ interface GameState {
 // 2. Create the actual store
 export const useGameStore = create<GameState>((set) => ({
   // Initial State Values
+  userProfile: null,
   player: null,
   enemy: null,
   floor: 1,
@@ -46,6 +58,7 @@ export const useGameStore = create<GameState>((set) => ({
   enemyAnimation: '',
 
   // Action Implementations
+  setUserProfile: (userProfile) => set({ userProfile }),
   setPlayer: (player) => set({ player }),
   setEnemy: (enemy) => set({ enemy }),
   setFloor: (floor) => set({ floor }),

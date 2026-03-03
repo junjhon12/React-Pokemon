@@ -13,10 +13,10 @@ export const PlayerDashboard = ({ handleMoveClick }: PlayerDashboardProps) => {
 
   return (
     // order-3 places this entire block between the Arena and the Log on mobile
-    <div className='order-3 md:order-none w-full md:w-100 bg-[#d3d3d3] flex flex-col md:border-r-4 border-black shrink-0 text-black'>
+    <div className='order-3 md:order-0 w-full md:w-100 bg-[#d3d3d3] flex flex-col md:border-r-4 border-black shrink-0 text-black'>
       
       {/* Moves Container - order-1 on mobile to sit right under the Arena */}
-      <div className='order-1 md:order-3 min-h-[120px] md:h-62.5 bg-[#1a1a24] p-3 md:p-4 flex flex-col justify-end border-b-4 md:border-b-0 md:border-t-4 border-black'>
+      <div className='order-1 md:order-3 min-h-30 md:h-62.5 bg-[#1a1a24] p-3 md:p-4 flex flex-col justify-end border-b-4 md:border-b-0 md:border-t-4 border-black'>
         {playerTurn ? (
           <div className="grid grid-cols-2 gap-2 h-full">
             {player.moves?.map((move, index) => (

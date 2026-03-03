@@ -1,30 +1,38 @@
 import { useEffect, useState } from 'react';
 import { fetchPokemonCard } from './utils/api'; 
 
-// 1. Interfaces go OUTSIDE the component
 interface TCGCard {
   id: string;
   name: string;
   image?: string;
-  dexId?: number[];
+  localId?: string; 
+  dexId?: number[]; 
 }
 
 interface StarterSelectionProps {
   onSelectStarter: (pokedexId: number) => void; 
 }
 
-// 2. The component function starts here
 export const StarterSelection = ({ onSelectStarter }: StarterSelectionProps) => {
-  
-  // 3. The Hook goes INSIDE the component (this replaces the 'any' line)
   const [cards, setCards] = useState<TCGCard[]>([]);
 
   useEffect(() => {
     const getCards = async () => {
-      const fetchedCards = await fetchPokemonCard();
+      // Cast the fetch response so TS knows exactly what it's working with
+      const fetchedCards = (await fetchPokemonCard()) as (TCGCard | undefined)[];
+      
       if (fetchedCards && fetchedCards.length > 0) {
-        // Sorts cards by Pokedex number (dexId) so Bulbasaur is always first
-        const sorted = [...fetchedCards].sort((a, b) => (a.dexId?.[0] || 0) - (b.dexId?.[0] || 0));
+        
+        // Safely extract valid cards and assert the type
+        const validCards = fetchedCards.filter((card): card is TCGCard => !!card);
+        
+        // Sort safely with strict fallbacks
+        const sorted = validCards.sort((a, b) => {
+          const idA = a.dexId && a.dexId.length > 0 ? a.dexId[0] : 0;
+          const idB = b.dexId && b.dexId.length > 0 ? b.dexId[0] : 0;
+          return idA - idB;
+        });
+        
         setCards(sorted);
       }
     };
@@ -43,7 +51,7 @@ export const StarterSelection = ({ onSelectStarter }: StarterSelectionProps) => 
             <button 
               key={card.id}
               // TCGdex exposes the national pokedex array under 'dexId'
-              onClick={() => onSelectStarter(card.dexId?.[0])}
+              onClick={() => onSelectStarter(card.dexId?.[0] ?? 1)}
               className="transition-transform duration-300 hover:-translate-y-4 hover:scale-105 hover:shadow-[0_0_30px_rgba(255,255,255,0.5)] rounded-xl cursor-pointer bg-transparent border-none p-0"
             >
               {/* TCGdex requires you to append the resolution to the image base URL */}

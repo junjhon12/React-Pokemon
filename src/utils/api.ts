@@ -37,7 +37,7 @@ const fetchMoveDetails = async (url: string): Promise<Move | null> => {
       power: data.power || 0, 
       accuracy: data.accuracy || 100,
       pp: data.pp || 15,
-      statusEffect: moveStatus,
+      statusEffect: moveStatus as "poison" | "burn" | "paralyze" | "freeze" | "stunned" | undefined,
     };
   } catch (e) {
     console.error("Error fetching move:", e);

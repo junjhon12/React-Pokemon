@@ -17,4 +17,4 @@ export interface Pokemon {
     equipment?: Equipment[];
 }
 
-export { Equipment };
+export type { Equipment };

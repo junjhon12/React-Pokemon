@@ -8,10 +8,6 @@ import { useGameStore } from './store/gameStore';
 import { useEffect, useRef } from 'react';
 import './App.css';
 
-const API_URL = import.meta.env.PROD 
-  ? 'https://pokemon-rogue-api.onrender.com' 
-  : 'http://localhost:5000';
-
 function App() {
   const {
     player, enemy, gameLog, floor, upgrades,
@@ -30,46 +26,27 @@ function App() {
   }, [gameLog]);
 
   // ==========================================
-  // SECURE: Save Score Function
+  // LOCAL: Save Score Function
   // ==========================================
-  const handleFinishRun = async () => {
+  const handleFinishRun = () => {
     if (!player) return;
 
-    // 1. Grab the secure JWT token from memory that Google gave us
-    const token = localStorage.getItem('rogue-google-token');
-
-    // 3. Send the secure request with the Authorization header
-    try {
-      const response = await fetch(`${API_URL}/api/leaderboard`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}` // The "Bouncer" on the backend checks this
-        },
-        body: JSON.stringify({
-          // We don't send the name! The backend extracts it from the token securely.
-          pokemon: player.name.charAt(0).toUpperCase() + player.name.slice(1),
-          pokemonId: player.id,
-          floor: floor
-        })
-      });
-
-      if (!response.ok) {
-        // Handle session expiration (usually after 1 hour)
-        if (response.status === 401 || response.status === 403) {
-           localStorage.removeItem('rogue-google-token');
-           localStorage.removeItem('rogue-player-name');
-           alert("Your Google session expired. Please log in again to save future runs.");
-        }
-        throw new Error('Server rejected the secure request');
-      }
-      
-      const data = await response.json();
-      console.log("Database Response:", data.message); 
-      
-    } catch (error) {
-      console.error("❌ Failed to save secure score:", error);
-    }
+    // 1. Get existing scores from local browser storage
+    const currentHighScores = JSON.parse(localStorage.getItem('rogue-high-scores') || '[]');
+    
+    // 2. Create the new score entry
+    const newScore = {
+      pokemon: player.name.charAt(0).toUpperCase() + player.name.slice(1),
+      floor: floor,
+      date: new Date().toLocaleDateString()
+    };
+    
+    // 3. Add to the list and sort highest to lowest
+    currentHighScores.push(newScore);
+    currentHighScores.sort((a: any, b: any) => b.floor - a.floor); 
+    
+    // 4. Save the top 10 back to the browser
+    localStorage.setItem('rogue-high-scores', JSON.stringify(currentHighScores.slice(0, 10))); 
 
     setIsGameStarted('START');
   };

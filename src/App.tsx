@@ -19,10 +19,15 @@ function App() {
     gameOver, winner
   } = useGameEngine();
   
-  const logEndRef = useRef<HTMLDivElement>(null);
+  const logContainerRef = useRef<HTMLDivElement>(null);
   
   useEffect(() => {
-    logEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    if (logContainerRef.current) {
+      logContainerRef.current.scrollTo({
+        top: logContainerRef.current.scrollHeight,
+        behavior: 'smooth'
+      });
+    }
   }, [gameLog]);
 
   const handleFinishRun = () => {
@@ -40,7 +45,8 @@ function App() {
   };
 
   return (
-    <div className='min-h-screen w-screen bg-black flex items-center justify-center font-mono p-0 sm:p-2 md:p-4'>
+    // 1. CHANGE: Changed `items-center` to `items-start md:items-center` so the page can scroll natively on mobile
+    <div className='min-h-screen w-full bg-black flex items-start md:items-center justify-center font-mono p-0 sm:p-2 md:p-4'>
       
       {isGameStarted === 'START' && (
         <StartScreen highScore={highScore} startGame={startGame} />
@@ -51,18 +57,15 @@ function App() {
       )}
 
       {isGameStarted === 'BATTLE' && (
-        // Mobile: flex-col, Desktop: flex-row
-        <div className='w-full max-w-6xl h-screen md:h-200 flex flex-col md:flex-row bg-white md:border-4 border-mist-600 md:rounded-lg overflow-hidden md:shadow-2xl'>
+        // 2. CHANGE: Replaced `h-screen` with `h-auto min-h-screen md:min-h-0` to let the container expand on mobile
+        <div className='w-full max-w-6xl h-auto min-h-screen md:min-h-0 md:h-200 flex flex-col md:flex-row bg-white md:border-4 border-mist-600 md:rounded-lg overflow-hidden md:shadow-2xl'>
           
-          {/* DASHBOARD: Slotted into order-3 on mobile, order-1 on desktop */}
           {player && (
             <PlayerDashboard handleMoveClick={handleMoveClick} />
           )}
 
-          {/* RIGHT PANE: 'contents' unwraps this div on mobile so children can be ordered freely */}
           <div className='contents md:flex md:flex-1 md:flex-col relative bg-[#1a1a24]'>
             
-            {/* Header: order-1 on mobile */}
             <div className='order-1 md:order-1 h-10 md:h-12 bg-[#b31429] flex items-center px-4 md:px-6 justify-between border-b-4 border-black shrink-0'>
               <h1 className='text-white font-black text-lg md:text-xl tracking-widest uppercase'>
                 {floor % 10 === 0 ? `BOSS ${floor}` : floor % 5 === 0 ? `MINI-BOSS ${floor}` : `ROOM ${floor}`}
@@ -70,15 +73,15 @@ function App() {
               <span className="text-gray-200 font-bold text-xs md:text-sm">AREA {Math.ceil(floor/5)}</span>
             </div>
 
-            {/* Log: Pushed to order-4 (bottom) on mobile, order-2 (top) on desktop */}
-            <div className='order-4 md:order-2 w-full h-32 md:h-32 bg-black text-green-400 p-3 md:p-4 overflow-y-auto text-xs md:text-sm font-mono border-y-4 md:border-t-0 md:border-b-4 border-black shrink-0 shadow-inner'>
+            <div 
+              ref={logContainerRef} 
+              className='order-4 md:order-2 w-full h-32 md:h-32 bg-black text-green-400 p-3 md:p-4 overflow-y-auto text-xs md:text-sm font-mono border-y-4 md:border-t-0 md:border-b-4 border-black shrink-0 shadow-inner'
+            >
               {gameLog.map((log, i) => (
                 <p key={i} className="mb-1">{log}</p>
               ))}
-              <div ref={logEndRef} />
             </div>
 
-            {/* Visual Arena: order-2 on mobile (right below header) */}
             <div className='order-2 md:order-3 w-full min-h-[40vh] md:min-h-0 md:flex-1 relative bg-linear-to-b from-[#87ceeb] to-[#90ee90] overflow-hidden'>
               
               <LootOverlay upgrades={upgrades} handleSelectUpgrade={handleSelectUpgrade} />

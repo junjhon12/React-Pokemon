@@ -36,7 +36,7 @@ The project utilizes a high-performance, modern tech stack:
 
 ## 4️⃣ Launch
 ### 🌐 Live Demo
-You can play the live version here: [Poké-Rogue Live Demo](https://69a5a72f18b9fa0008239684--pokemon-deep.netlify.app/)
+You can play the live version here: [Poké-Rogue Live Demo]([https://69a5a72f18b9fa0008239684--pokemon-deep.netlify.app/](https://junjhon12.github.io/React-Pokemon/))
 
 ### 💻 Local Setup
 To run this project locally, ensure you have **Node.js** installed:

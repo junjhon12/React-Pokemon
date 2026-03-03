@@ -86,7 +86,7 @@ Floor Completion: After defeating an enemy, the user is presented with three upg
 Scaling Difficulty: Every 5 floors features a "Mini-Boss" with boosted stats, while every 10 floors triggers a legendary "Boss" encounter.
 
 9️⃣ Project Status
-The project is currently in a Functional Prototype state. The core game loop—including battle logic, stat scaling, and the upgrade system—is fully implemented and stable. Future updates may include expanded multiplayer features using the integrated Supabase/MongoDB backend.
+The project is currently in a Functional Prototype state. The core game loop—including battle logic, stat scaling, and the upgrade system—is fully implemented and stable. Future updates may include expansion of starter pokemon.
 
 🔟 Sources
 Data Provider: PokeAPI – Used for live entity data, movesets, and sprites.

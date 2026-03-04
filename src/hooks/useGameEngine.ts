@@ -1,8 +1,6 @@
 import { getRandomPokemon } from '../utils/api'; 
 import { scaleEnemyStats } from '../utils/gameLogic';
-import { useGameStore } from '../store/gameStore';
-
-// Import our newly separated logic hooks!
+import { useGameStore, type DungeonModifier } from '../store/gameStore';
 import { useRewards, applyPPScale } from './useRewards';
 import { useCombat } from './useCombat';
 
@@ -16,14 +14,24 @@ export const useGameEngine = () => {
   const setFloor = (val: any) => useGameStore.setState(typeof val === 'function' ? (s) => ({ floor: val(s.floor) }) : { floor: val });
   const setUpgrades = (val: any) => useGameStore.setState(typeof val === 'function' ? (s) => ({ upgrades: val(s.upgrades) }) : { upgrades: val });
   const setIsGameStarted = (val: 'START' | 'SELECT' | 'BATTLE') => useGameStore.setState({ isGameStarted: val });
+  const setDungeonModifier = (mod: DungeonModifier) => useGameStore.setState({ dungeonModifier: mod });
 
-  // 1. Setup Core Loop Functions
   const spawnNewEnemy = async (targetFloor: number) => {
     setPlayerTurn(true);
     const bossEnemy = targetFloor % 10 === 0;
     const miniBossEnemy = targetFloor % 5 === 0 && !bossEnemy;
     const legendaryPokemonIds = [144, 145, 146, 150, 151]; 
     const pseudoLegendaryIds = [65, 94, 115, 130, 143, 149]; 
+
+    // NEW: Roll Dungeon Modifiers
+    if (targetFloor > 1 && targetFloor % 5 === 0) {
+        const modifiers: DungeonModifier[] = ['volcanic', 'thick-fog', 'electric-terrain', 'hail'];
+        const rolledMod = modifiers[Math.floor(Math.random() * modifiers.length)];
+        setDungeonModifier(rolledMod);
+        setGameLog((prev: string[]) => [...prev, `⚠️ DUNGEON MUTATED: ${rolledMod.toUpperCase()} ⚠️`]);
+    } else if (targetFloor === 1 || targetFloor % 5 === 1) {
+        setDungeonModifier('none'); // Clear it when moving to a normal floor
+    }
 
     let randomId;
     if (bossEnemy) randomId = legendaryPokemonIds[Math.floor(Math.random() * legendaryPokemonIds.length)];
@@ -53,25 +61,19 @@ export const useGameEngine = () => {
     spawnNewEnemy(nextFloor);
   };
 
-  // 2. Initialize the separate domains
   const { handleEnemyDefeat, handleSelectUpgrade, handleReplaceMove, handleSkipMove } = useRewards(handleNextFloor);
   const { handleMoveClick, executeEnemyTurn } = useCombat(handleEnemyDefeat);
 
-  // 3. Game Start Functions
   const startGame = () => setIsGameStarted('SELECT');
 
   const selectStarterAndStart = async (starterId: number) => {
     setFloor(1);
+    setDungeonModifier('none');
     setGameLog(['Welcome to the Dungeon!', 'Battle Start!']);
     setUpgrades([]);
 
-    const earlyEnemies = [10, 13, 16, 19, 21, 29, 32, 41, 43, 46, 69]; 
-    const initialEnemyId = earlyEnemies[Math.floor(Math.random() * earlyEnemies.length)];
-
-    const [p1, p2] = await Promise.all([
-      getRandomPokemon(starterId, true, 1), 
-      getRandomPokemon(initialEnemyId, false, 1) 
-    ]);
+    const initialEnemyId = [10, 13, 16, 19, 21, 29, 32, 41, 43, 46, 69][Math.floor(Math.random() * 11)];
+    const [p1, p2] = await Promise.all([getRandomPokemon(starterId, true, 1), getRandomPokemon(initialEnemyId, false, 1)]);
 
     const playerMon = { ...p1, isPlayer: true };
     if (playerMon.moves) playerMon.moves = playerMon.moves.map(applyPPScale);
@@ -94,9 +96,5 @@ export const useGameEngine = () => {
   const gameOver = player?.stats.hp === 0 || enemy?.stats.hp === 0;
   const winner = enemy?.stats.hp === 0 ? 'Player' : 'Enemy';
 
-  // Export the exact same API to App.tsx so no UI components break!
-  return {
-    startGame, selectStarterAndStart, handleMoveClick, handleSelectUpgrade, setIsGameStarted,
-    handleReplaceMove, handleSkipMove, gameOver, winner
-  };
+  return { startGame, selectStarterAndStart, handleMoveClick, handleSelectUpgrade, setIsGameStarted, handleReplaceMove, handleSkipMove, gameOver, winner };
 };

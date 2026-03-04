@@ -3,35 +3,31 @@ import type { Pokemon } from '../types/pokemon';
 import type { Upgrade } from '../types/upgrade';
 import type { Move } from '../types/move';
 
-// Define the shape of the user profile we get from Google
 export interface UserProfile {
   name: string;
   email: string;
   picture: string;
 }
 
-// 1. Define the shape of our entire game's state
-interface GameState {
-  // User State
-  userProfile: UserProfile | null;
+export type DungeonModifier = 'none' | 'volcanic' | 'thick-fog' | 'electric-terrain' | 'hail';
 
-  // Data State
+interface GameState {
+  userProfile: UserProfile | null;
   player: Pokemon | null;
   enemy: Pokemon | null;
   floor: number;
   highScore: number;
   upgrades: Upgrade[];
   gameLog: string[];
-  
-  // Game Flow State
   isGameStarted: 'START' | 'SELECT' | 'BATTLE';
   playerTurn: boolean;
   playerAnimation: string;
   enemyAnimation: string;
-
   pendingMove: Move | null;
+  
+  // NEW: Dungeon Modifier State
+  dungeonModifier: DungeonModifier;
 
-  // Actions
   setUserProfile: (profile: UserProfile | null) => void;
   setPlayer: (player: Pokemon | null) => void;
   setEnemy: (enemy: Pokemon | null) => void;
@@ -43,13 +39,11 @@ interface GameState {
   setPlayerAnimation: (anim: string) => void;
   setEnemyAnimation: (anim: string) => void;
   setHighScore: (score: number) => void;
-
   setPendingMove: (move: Move | null) => void;
+  setDungeonModifier: (mod: DungeonModifier) => void;
 }
 
-// 2. Create the actual store
 export const useGameStore = create<GameState>((set) => ({
-  // Initial State Values
   userProfile: null,
   player: null,
   enemy: null,
@@ -62,16 +56,14 @@ export const useGameStore = create<GameState>((set) => ({
   playerAnimation: '',
   enemyAnimation: '',
   pendingMove: null,
+  dungeonModifier: 'none', // Initial state
 
-  // Action Implementations
   setUserProfile: (userProfile) => set({ userProfile }),
   setPlayer: (player) => set({ player }),
   setEnemy: (enemy) => set({ enemy }),
   setFloor: (floor) => set({ floor }),
   setUpgrades: (upgrades) => set({ upgrades }),
-  
   addGameLog: (messages) => set((state) => ({ gameLog: [...state.gameLog, ...messages] })),
-  
   setIsGameStarted: (isGameStarted) => set({ isGameStarted }),
   setPlayerTurn: (playerTurn) => set({ playerTurn }),
   setPlayerAnimation: (playerAnimation) => set({ playerAnimation }),
@@ -80,5 +72,6 @@ export const useGameStore = create<GameState>((set) => ({
     localStorage.setItem('rogue-score', score.toString());
     set({ highScore: score });
   },
-  setPendingMove: (pendingMove) => set({ pendingMove })
+  setPendingMove: (pendingMove) => set({ pendingMove }),
+  setDungeonModifier: (dungeonModifier) => set({ dungeonModifier })
 }));

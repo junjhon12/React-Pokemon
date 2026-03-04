@@ -23,6 +23,7 @@ export const useCombat = (onEnemyDefeat: (enemy: Pokemon, player: Pokemon) => Pr
 
   const executeEnemyTurn = async (currentPlayer: Pokemon, currentEnemy: Pokemon) => {
     await wait(500);
+    const { dungeonModifier } = useGameStore.getState();
 
     if (currentEnemy.status === 'freeze') {
       if (Math.random() < 0.2) {
@@ -45,18 +46,33 @@ export const useCombat = (onEnemyDefeat: (enemy: Pokemon, player: Pokemon) => Pr
     setEnemyAnimation('animate-lunge-left');
     await wait(300);
 
-    if ((Math.random() * 100) < getEffectiveStat(currentPlayer, 'dodge')) {
+    if ((Math.random() * 100) < getEffectiveStat(currentPlayer, 'dodge', dungeonModifier)) {
       setGameLog((prev: string[]) => [...prev, `${currentPlayer.name} dodged the attack!`]);
       setEnemyAnimation(''); setPlayerTurn(true); return;
     }
 
-    const isCrit = (Math.random() * 100) < getEffectiveStat(currentEnemy, 'critChance');
+    const isCrit = (Math.random() * 100) < getEffectiveStat(currentEnemy, 'critChance', dungeonModifier);
     const effectiveness = getTypeEffectiveness(randomMove.type, currentPlayer.types);
     const stab = currentEnemy.types.includes(randomMove.type) ? 1.5 : 1;
     
-    const defenseMitigation = 10 / (10 + getEffectiveStat(currentPlayer, 'defense')); 
-    const baseDamage = (getEffectiveStat(currentEnemy, 'attack') * randomMove.power) / 50;
-    const finalDamage = Math.max(1, Math.floor(baseDamage * effectiveness * defenseMitigation * (isCrit ? 1.5 : 1) * stab));
+    // NEW: Apply Dungeon Weather damage multipliers
+    let weatherMultiplier = 1;
+    if (dungeonModifier === 'volcanic' && randomMove.type === 'fire') weatherMultiplier = 1.5;
+    if (dungeonModifier === 'electric-terrain' && randomMove.type === 'electric') weatherMultiplier = 1.5;
+
+    // NEW: Check for Speed Advantage Double Strike
+    const pSpeed = getEffectiveStat(currentPlayer, 'speed', dungeonModifier);
+    const eSpeed = getEffectiveStat(currentEnemy, 'speed', dungeonModifier);
+    let hits = 1;
+    let isDoubleStrike = false;
+    if (eSpeed >= pSpeed * 1.5 && Math.random() < 0.3) {
+        hits = 2;
+        isDoubleStrike = true;
+    }
+
+    const defenseMitigation = 10 / (10 + getEffectiveStat(currentPlayer, 'defense', dungeonModifier)); 
+    const baseDamage = (getEffectiveStat(currentEnemy, 'attack', dungeonModifier) * randomMove.power) / 50;
+    const finalDamage = Math.max(1, Math.floor(baseDamage * effectiveness * defenseMitigation * (isCrit ? 1.5 : 1) * stab * weatherMultiplier * hits));
 
     setPlayerAnimation('animate-shake');
     
@@ -70,9 +86,11 @@ export const useCombat = (onEnemyDefeat: (enemy: Pokemon, player: Pokemon) => Pr
 
     const remainingHp = Math.max(currentPlayer.stats.hp - finalDamage, 0);
     let logMsg = `${currentEnemy.name} dealt ${finalDamage} damage!`;
+    if (isDoubleStrike) logMsg += " DOUBLE STRIKE (Speed Advantage)!";
     if (isCrit) logMsg += " A Critical Hit!";
     if (effectiveness > 1) logMsg += " It's Super Effective!";
     if (stab > 1 && effectiveness <= 1) logMsg += " STAB applied!";
+    if (weatherMultiplier > 1) logMsg += " Boosted by Weather!";
     if (statusLog) logMsg += statusLog;
 
     setPlayer((prev: Pokemon | null) => prev ? { ...prev, stats: { ...prev.stats, hp: remainingHp }, status: appliedStatus } : null);
@@ -88,7 +106,7 @@ export const useCombat = (onEnemyDefeat: (enemy: Pokemon, player: Pokemon) => Pr
   };
 
   const handleMoveClick = async (move: Move) => {
-    const { player, enemy, playerTurn } = useGameStore.getState();
+    const { player, enemy, playerTurn, dungeonModifier } = useGameStore.getState();
     if (!player || !enemy || !playerTurn) return;
 
     const hasAnyPP = player.moves?.some(m => m.pp > 0);
@@ -134,17 +152,33 @@ export const useCombat = (onEnemyDefeat: (enemy: Pokemon, player: Pokemon) => Pr
 
     await wait(300);
 
-    if ((Math.random() * 100) < getEffectiveStat(enemy, 'dodge')) {
+    if ((Math.random() * 100) < getEffectiveStat(enemy, 'dodge', dungeonModifier)) {
       setGameLog((prev: string[]) => [...prev, `${enemy.name} dodged!`]);
       setPlayerAnimation(''); await executeEnemyTurn(updatedPlayer, enemy); return;
     }
 
-    const isCrit = (Math.random() * 100) < getEffectiveStat(player, 'critChance');
+    const isCrit = (Math.random() * 100) < getEffectiveStat(player, 'critChance', dungeonModifier);
     const effectiveness = getTypeEffectiveness(activeMove.type, enemy.types);
     const stab = player.types.includes(activeMove.type) ? 1.5 : 1;
-    const defenseMitigation = 10 / (10 + getEffectiveStat(enemy, 'defense')); 
-    const baseDamage = (getEffectiveStat(player, 'attack') * activeMove.power) / 50;
-    const finalDamage = Math.max(1, Math.floor(baseDamage * effectiveness * defenseMitigation * (isCrit ? 1.5 : 1) * stab));
+    
+    // NEW: Apply Dungeon Weather damage multipliers
+    let weatherMultiplier = 1;
+    if (dungeonModifier === 'volcanic' && activeMove.type === 'fire') weatherMultiplier = 1.5;
+    if (dungeonModifier === 'electric-terrain' && activeMove.type === 'electric') weatherMultiplier = 1.5;
+
+    // NEW: Check for Speed Advantage Double Strike
+    const pSpeed = getEffectiveStat(player, 'speed', dungeonModifier);
+    const eSpeed = getEffectiveStat(enemy, 'speed', dungeonModifier);
+    let hits = 1;
+    let isDoubleStrike = false;
+    if (pSpeed >= eSpeed * 1.5 && Math.random() < 0.3) {
+        hits = 2;
+        isDoubleStrike = true;
+    }
+
+    const defenseMitigation = 10 / (10 + getEffectiveStat(enemy, 'defense', dungeonModifier)); 
+    const baseDamage = (getEffectiveStat(player, 'attack', dungeonModifier) * activeMove.power) / 50;
+    const finalDamage = Math.max(1, Math.floor(baseDamage * effectiveness * defenseMitigation * (isCrit ? 1.5 : 1) * stab * weatherMultiplier * hits));
 
     setEnemyAnimation('animate-shake'); 
     
@@ -158,15 +192,24 @@ export const useCombat = (onEnemyDefeat: (enemy: Pokemon, player: Pokemon) => Pr
 
     const remainingEnemyHp = Math.max(enemy.stats.hp - finalDamage, 0);
     let logMsg = `It dealt ${finalDamage} damage!`;
+    if (isDoubleStrike) logMsg += " DOUBLE STRIKE (Speed Advantage)!";
     if (isCrit) logMsg += " A Critical Hit!";
     if (effectiveness > 1) logMsg += " It's Super Effective!";
     if (stab > 1 && effectiveness <= 1) logMsg += " STAB applied!";
+    if (weatherMultiplier > 1) logMsg += " Boosted by Weather!";
     if (statusLog) logMsg += statusLog;
 
     if (isStruggle) {
        const recoil = Math.max(1, Math.floor(updatedPlayer.stats.maxHp * 0.25));
        updatedPlayer.stats.hp = Math.max(0, updatedPlayer.stats.hp - recoil);
        logMsg += ` ${player.name} took ${recoil} recoil damage!`;
+    }
+
+    // NEW: Hail Environmental Damage
+    if (dungeonModifier === 'hail') {
+        const hailDmg = Math.floor(updatedPlayer.stats.maxHp * 0.05);
+        updatedPlayer.stats.hp = Math.max(0, updatedPlayer.stats.hp - hailDmg);
+        logMsg += ` The Hail battered ${player.name} for ${hailDmg} damage!`;
     }
 
     if (updatedPlayer.status === 'burn' || updatedPlayer.status === 'poison') {

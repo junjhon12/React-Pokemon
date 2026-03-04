@@ -6,16 +6,19 @@ import { StarterSelection } from './playerPokemonSelection';
 import { useGameEngine } from './hooks/useGameEngine';
 import { useGameStore } from './store/gameStore'; 
 import { useEffect, useRef } from 'react';
+import { MoveReplacementOverlay } from './components/MoveReplacementOverlay';
 import './App.css';
 
 function App() {
   const {
     player, enemy, gameLog, floor, upgrades,
-    playerAnimation, enemyAnimation, isGameStarted, highScore
+    playerAnimation, enemyAnimation, isGameStarted, highScore,
+    pendingMove 
   } = useGameStore();
 
   const {
     startGame, selectStarterAndStart, handleMoveClick, handleSelectUpgrade, setIsGameStarted,
+    handleReplaceMove, handleSkipMove,
     gameOver, winner
   } = useGameEngine();
   
@@ -57,7 +60,6 @@ function App() {
       )}
 
       {isGameStarted === 'BATTLE' && (
-        // 2. CHANGE: Replaced `h-screen` with `h-auto min-h-screen md:min-h-0` to let the container expand on mobile
         <div className='w-full max-w-6xl h-auto min-h-screen md:min-h-0 md:h-200 flex flex-col md:flex-row bg-white md:border-4 border-mist-600 md:rounded-lg overflow-hidden md:shadow-2xl'>
           
           {player && (
@@ -85,7 +87,12 @@ function App() {
             <div className='order-2 md:order-3 w-full min-h-[40vh] md:min-h-0 md:flex-1 relative bg-linear-to-b from-[#87ceeb] to-[#90ee90] overflow-hidden'>
               
               <LootOverlay upgrades={upgrades} handleSelectUpgrade={handleSelectUpgrade} />
-
+              {pendingMove && (
+                <MoveReplacementOverlay 
+                  handleReplaceMove={handleReplaceMove} 
+                  handleSkipMove={handleSkipMove} 
+                />
+              )}
               {gameOver && upgrades.length === 0 && (
                 <div className='absolute inset-0 bg-black/90 z-50 flex flex-col items-center justify-center p-4 text-center'>
                   <h2 className='text-4xl md:text-6xl font-black mb-6 text-yellow-400'>

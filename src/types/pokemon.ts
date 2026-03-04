@@ -10,6 +10,7 @@ export interface Pokemon {
     isPlayer: boolean;
     level?: number;
     moves?: Move[];
+    learnset?: { level: number; name: string; url: string }[];
     types: string[];
     xp?: number;
     maxXp?: number;

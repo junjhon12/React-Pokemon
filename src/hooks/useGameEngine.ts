@@ -2,7 +2,7 @@ import { useCallback } from 'react';
 import { type Pokemon, type StatKey } from '../types/pokemon';
 import type { Upgrade } from '../types/upgrade';
 import type { Move } from '../types/move';
-import { getRandomPokemon, fetchEquipmentFromPokeAPI } from '../utils/api'; 
+import { getRandomPokemon, fetchEquipmentFromPokeAPI, fetchMoveDetails } from '../utils/api'; 
 import { scaleEnemyStats, getRandomUpgrades, getTypeEffectiveness, EVOLUTION_MAP, getEffectiveStat } from '../utils/gameLogic';
 import { ITEM_POOL } from '../data/items';
 import { useGameStore } from '../store/gameStore';
@@ -55,15 +55,14 @@ export const useGameEngine = () => {
 
   const startGame = () => setIsGameStarted('SELECT');
 
-  // FIX 1: Trigger executeEnemyTurn if the enemy is faster at the start
   const selectStarterAndStart = async (starterId: number) => {
     setFloor(1);
     setGameLog(['Welcome to the Dungeon!', 'Battle Start!']);
     setUpgrades([]);
 
     const [p1, p2] = await Promise.all([
-      getRandomPokemon(starterId),
-      getRandomPokemon(Math.floor(Math.random() * 151) + 1)
+      getRandomPokemon(starterId, true), // <-- Added true here
+      getRandomPokemon(Math.floor(Math.random() * 151) + 1, false)
     ]);
 
     const playerMon = { ...p1, isPlayer: true };
@@ -95,7 +94,7 @@ export const useGameEngine = () => {
     const randomId = bossEnemy ? legendaryPokemonIds[Math.floor(Math.random() * legendaryPokemonIds.length)] :
                      miniBossEnemy ? pseduoLegendaryIds[Math.floor(Math.random() * pseduoLegendaryIds.length)] :
                      Math.floor(Math.random() * 151) + 1;
-    const newEnemy = await getRandomPokemon(randomId);
+    const newEnemy = await getRandomPokemon(randomId, false);
 
     const scaledEnemy = scaleEnemyStats(newEnemy, targetFloor);
 
@@ -130,11 +129,33 @@ export const useGameEngine = () => {
     const currentXp = newPlayer.xp || 0;
     const currentMaxXp = newPlayer.maxXp || 100;
     const totalXp = currentXp + xpGain;
+    const oldLevel = newPlayer.level || 1; // Track old level
 
     if (totalXp >= currentMaxXp) {
       const overflow = totalXp - currentMaxXp;
       newPlayer = handleLevelUp(newPlayer, overflow);
       setGameLog((prev: string[]) => [...prev, `Level Up! You are now Lvl ${newPlayer.level}!`]);
+      
+      // NEW MOVE LEARNING LOGIC
+      const movesToLearn = newPlayer.learnset?.filter(m => m.level > oldLevel && m.level <= (newPlayer.level || 0)) || [];
+      
+      for (const moveInfo of movesToLearn) {
+        // Don't learn moves we already know
+        if (newPlayer.moves?.some(m => m.name.toLowerCase() === moveInfo.name.replace('-', ' '))) continue;
+
+        const fetchedMove = await fetchMoveDetails(moveInfo.url);
+        if (fetchedMove) {
+          if ((newPlayer.moves?.length || 0) < 4) {
+            if (!newPlayer.moves) newPlayer.moves = [];
+            newPlayer.moves.push(fetchedMove);
+            setGameLog((prev: string[]) => [...prev, `${newPlayer.name} learned ${fetchedMove.name}!`]);
+          } else {
+            // Trigger the UI to ask the user to replace a move
+            useGameStore.getState().setPendingMove(fetchedMove);
+            break; // Stop checking for more moves to keep the UI clean (one at a time)
+          }
+        }
+      }
     } else {
       newPlayer.xp = totalXp;
       setGameLog((prev: string[]) => [...prev, `You gained ${xpGain} XP.`]);
@@ -376,7 +397,7 @@ export const useGameEngine = () => {
 
     if (upgrade.stat === 'evolve') {
       const nextId = EVOLUTION_MAP ? EVOLUTION_MAP[player.id] : player.id + 1; 
-      const evolvedBase = await getRandomPokemon(nextId);
+      const evolvedBase = await getRandomPokemon(nextId, true);
       const currentLevel = player.level || 1;
       const scaledEvolved = scaleEnemyStats(evolvedBase, currentLevel);
       setPlayer({
@@ -405,11 +426,33 @@ export const useGameEngine = () => {
     handleNextFloor();
   };
 
+  const handleReplaceMove = (moveIndex: number) => {
+    const { player, pendingMove, setPendingMove } = useGameStore.getState();
+    if (!player || !pendingMove) return;
+
+    const newMoves = [...(player.moves || [])];
+    const oldMoveName = newMoves[moveIndex].name;
+    newMoves[moveIndex] = pendingMove;
+
+    setPlayer({ ...player, moves: newMoves });
+    setGameLog((prev) => [...prev, `1, 2, and... Poof!`, `${player.name} forgot ${oldMoveName} and learned ${pendingMove.name}! `]);
+    setPendingMove(null);
+  };
+
+  const handleSkipMove = () => {
+    const { player, pendingMove, setPendingMove } = useGameStore.getState();
+    if (!player || !pendingMove) return;
+    
+    setGameLog((prev) => [...prev, `${player.name} gave up on learning ${pendingMove.name}.`]);
+    setPendingMove(null);
+  };
+
   const gameOver = player?.stats.hp === 0 || enemy?.stats.hp === 0;
   const winner = enemy?.stats.hp === 0 ? 'Player' : 'Enemy';
 
   return {
     startGame, selectStarterAndStart, handleMoveClick, handleSelectUpgrade, setIsGameStarted,
+    handleReplaceMove, handleSkipMove,
     gameOver, winner
   };
 };

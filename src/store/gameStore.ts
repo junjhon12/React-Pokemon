@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import type { Pokemon } from '../types/pokemon';
 import type { Upgrade } from '../types/upgrade';
+import type { Move } from '../types/move';
 
 // Define the shape of the user profile we get from Google
 export interface UserProfile {
@@ -28,6 +29,8 @@ interface GameState {
   playerAnimation: string;
   enemyAnimation: string;
 
+  pendingMove: Move | null;
+
   // Actions
   setUserProfile: (profile: UserProfile | null) => void;
   setPlayer: (player: Pokemon | null) => void;
@@ -40,6 +43,8 @@ interface GameState {
   setPlayerAnimation: (anim: string) => void;
   setEnemyAnimation: (anim: string) => void;
   setHighScore: (score: number) => void;
+
+  setPendingMove: (move: Move | null) => void;
 }
 
 // 2. Create the actual store
@@ -56,6 +61,7 @@ export const useGameStore = create<GameState>((set) => ({
   playerTurn: true,
   playerAnimation: '',
   enemyAnimation: '',
+  pendingMove: null,
 
   // Action Implementations
   setUserProfile: (userProfile) => set({ userProfile }),
@@ -73,5 +79,6 @@ export const useGameStore = create<GameState>((set) => ({
   setHighScore: (score) => {
     localStorage.setItem('rogue-score', score.toString());
     set({ highScore: score });
-  }
+  },
+  setPendingMove: (pendingMove) => set({ pendingMove })
 }));

@@ -9,15 +9,14 @@ import { useGameStore } from '../store/gameStore';
 
 const wait = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
-// NEW: Helper function to strictly scale PP based on the Power of the move
 const applyPPScale = (move: Move): Move => {
   const power = move.power || 0;
-  if (power > 100) move.maxPp = 2;       // S-Tier
-  else if (power >= 80) move.maxPp = 5;  // Rare
-  else if (power >= 55) move.maxPp = 10; // Uncommon
-  else move.maxPp = 20;                  // Common
+  if (power > 100) move.maxPp = 2;       
+  else if (power >= 80) move.maxPp = 5;  
+  else if (power >= 55) move.maxPp = 10; 
+  else move.maxPp = 20;                  
   
-  move.pp = move.maxPp; // Initialize fully charged
+  move.pp = move.maxPp; 
   return move;
 };
 
@@ -86,7 +85,6 @@ export const useGameEngine = () => {
     ]);
 
     const playerMon = { ...p1, isPlayer: true };
-    // NEW: Apply PP scaling to the starter's starting moves
     if (playerMon.moves) {
       playerMon.moves = playerMon.moves.map(applyPPScale);
     }
@@ -197,7 +195,6 @@ export const useGameEngine = () => {
       const levelUpData = handleLevelUp(newPlayer, overflow);
       newPlayer = levelUpData.player;
       
-      // NEW: Fully restore all PP upon leveling up!
       newPlayer.moves = newPlayer.moves?.map(m => ({ ...m, pp: m.maxPp || 20 }));
       
       const currentLevel = newPlayer.level || 1;
@@ -211,7 +208,7 @@ export const useGameEngine = () => {
 
         const fetchedMove = await fetchMoveDetails(moveInfo.url);
         if (fetchedMove) {
-          const scaledMove = applyPPScale(fetchedMove); // Scale new level up move PP
+          const scaledMove = applyPPScale(fetchedMove);
           if (newPlayer.moves.length < 4) {
             newPlayer.moves.push(scaledMove);
             setGameLog((prev: string[]) => [...prev, `${newPlayer.name} learned ${scaledMove.name}!`]);
@@ -226,15 +223,17 @@ export const useGameEngine = () => {
       setGameLog((prev: string[]) => [...prev, `You gained ${xpGain} XP.`]);
     }
     
-    // NEW: Restore PP if they just cleared a boss floor
+    // Clear status conditions and restore PP on boss defeat
     if (floor % 10 === 0) {
       newPlayer.moves = newPlayer.moves?.map(m => ({ ...m, pp: m.maxPp || 20 }));
-      setGameLog((prev: string[]) => [...prev, `Boss defeated! All PP fully restored!`]);
+      newPlayer.status = 'normal';
+      setGameLog((prev: string[]) => [...prev, `Boss defeated! PP fully restored and status conditions cured!`]);
     }
 
     setPlayer(newPlayer);
     
-    const baseLoot = getRandomUpgrades(2, currentPlayer.id);
+    // Pass the player's status so it can dynamically generate a Full Heal if needed
+    const baseLoot = getRandomUpgrades(2, currentPlayer.id, newPlayer.status);
     const currentEquipCount = currentPlayer.equipment?.length || 0;
     
     if (floor % 1 === 0 && currentEquipCount < 6) { 
@@ -311,12 +310,17 @@ export const useGameEngine = () => {
     const critMultiplier = isCrit ? 1.5 : 1;
     const effectiveness = getTypeEffectiveness(randomMove.type, currentPlayer.types);
     
+    // Apply STAB (Same Type Attack Bonus) for Enemy
+    const stab = currentEnemy.types.includes(randomMove.type) ? 1.5 : 1;
+    
     const playerDef = getEffectiveStat(currentPlayer, 'defense');
     const defenseMitigation = 10 / (10 + playerDef); 
     
     const enemyAtk = getEffectiveStat(currentEnemy, 'attack');
     const baseDamage = (enemyAtk * randomMove.power) / 50;
-    const finalDamage = Math.max(1, Math.floor(baseDamage * effectiveness * defenseMitigation * critMultiplier));
+    
+    // Multiply final damage by STAB
+    const finalDamage = Math.max(1, Math.floor(baseDamage * effectiveness * defenseMitigation * critMultiplier * stab));
 
     setPlayerAnimation('animate-shake');
     
@@ -335,6 +339,7 @@ export const useGameEngine = () => {
     let logMsg = `${currentEnemy.name} dealt ${finalDamage} damage!`;
     if (isCrit) logMsg += " A Critical Hit!";
     if (effectiveness > 1) logMsg += " It's Super Effective!";
+    if (stab > 1 && effectiveness <= 1) logMsg += " STAB applied!";
     if (statusLog) logMsg += statusLog;
 
     setPlayer((prev: Pokemon | null) => prev ? { ...prev, stats: { ...prev.stats, hp: remainingHp }, status: appliedStatus } : null);
@@ -355,18 +360,15 @@ export const useGameEngine = () => {
   const handleMoveClick = async (move: Move) => {
     if (!player || !enemy || !playerTurn) return;
 
-    // NEW: Check if the player has ANY PP left at all across all moves
     const hasAnyPP = player.moves?.some(m => m.pp > 0);
     let activeMove = move;
     let isStruggle = false;
 
-    // Trigger Struggle if completely empty
     if (!hasAnyPP) {
       activeMove = { name: 'Struggle', type: 'normal', power: 50, accuracy: 100, pp: 1, maxPp: 1 } as Move;
       isStruggle = true;
       setGameLog((prev: string[]) => [...prev, `${player.name} has no PP left for any moves!`]);
     } else if (move.pp <= 0) {
-      // Just block the click if they click an empty move but have other moves
       setGameLog((prev: string[]) => [...prev, `${player.name} has no PP left for ${move.name}!`]);
       return; 
     }
@@ -374,7 +376,6 @@ export const useGameEngine = () => {
     setPlayerTurn(false);
     let updatedPlayer = { ...player };
 
-    // NEW: Deduct PP from the clicked move (if not struggling)
     if (!isStruggle) {
       const moveIndex = updatedPlayer.moves?.findIndex(m => m.name === activeMove.name);
       if (moveIndex !== undefined && moveIndex !== -1 && updatedPlayer.moves) {
@@ -425,12 +426,17 @@ export const useGameEngine = () => {
     const critMultiplier = isCrit ? 1.5 : 1; 
     const effectiveness = getTypeEffectiveness(activeMove.type, enemy.types);
     
+    // Apply STAB (Same Type Attack Bonus) for Player
+    const stab = player.types.includes(activeMove.type) ? 1.5 : 1;
+
     const enemyDef = getEffectiveStat(enemy, 'defense');
     const defenseMitigation = 10 / (10 + enemyDef); 
     
     const playerAtk = getEffectiveStat(player, 'attack');
     const baseDamage = (playerAtk * activeMove.power) / 50;
-    const finalDamage = Math.max(1, Math.floor(baseDamage * effectiveness * defenseMitigation * critMultiplier));
+    
+    // Multiply final damage by STAB
+    const finalDamage = Math.max(1, Math.floor(baseDamage * effectiveness * defenseMitigation * critMultiplier * stab));
 
     setEnemyAnimation('animate-shake'); 
     
@@ -449,9 +455,9 @@ export const useGameEngine = () => {
     let logMsg = `It dealt ${finalDamage} damage!`;
     if (isCrit) logMsg += " A Critical Hit!";
     if (effectiveness > 1) logMsg += " It's Super Effective!";
+    if (stab > 1 && effectiveness <= 1) logMsg += " STAB applied!";
     if (statusLog) logMsg += statusLog;
 
-    // NEW: Apply Struggle Recoil
     if (isStruggle) {
        const recoil = Math.max(1, Math.floor(updatedPlayer.stats.maxHp * 0.25));
        updatedPlayer.stats.hp = Math.max(0, updatedPlayer.stats.hp - recoil);
@@ -489,6 +495,15 @@ export const useGameEngine = () => {
 
   const handleSelectUpgrade = async (upgrade: Upgrade) => {
     if (!player) return;
+
+    // Handle Full Heal upgrade selection
+    if (upgrade.stat === ('status' as any)) {
+      setPlayer({ ...player, status: 'normal' });
+      setGameLog((prev: string[]) => [...prev, `${player.name} used a Full Heal and cured its status condition!`]);
+      setUpgrades([]);
+      handleNextFloor();
+      return;
+    }
 
     if (upgrade.stat === 'equipment' && upgrade.equipment) {
       const currentEquip = player.equipment || [];
@@ -588,7 +603,7 @@ export const useGameEngine = () => {
       if (candidateMove) {
         const movePower = candidateMove.power || 0; 
         if (movePower >= targetMinPower && movePower <= targetMaxPower) {
-          fetchedMove = applyPPScale(candidateMove); // NEW: Scale dropped move PP
+          fetchedMove = applyPPScale(candidateMove); 
         }
       }
     }

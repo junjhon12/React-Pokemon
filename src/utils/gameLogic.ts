@@ -48,8 +48,9 @@ const UPGRADES: Upgrade[] = [
   { id: '5', name: 'Iron', description: 'Increases Defense by 1', stat: 'defense', amount: 1 }, 
 ];
 
-export const getRandomUpgrades = (count: number, playerId?: number): Upgrade[] => {
+export const getRandomUpgrades = (count: number, playerId?: number, playerStatus?: string): Upgrade[] => {
   const currentPool = [...UPGRADES];
+  
   if (playerId && EVOLUTION_MAP[playerId]) {
     currentPool.push({
       id: 'evo_stone',
@@ -59,6 +60,18 @@ export const getRandomUpgrades = (count: number, playerId?: number): Upgrade[] =
       amount: 0,
     });
   }
+
+  // Dynamically add a Full Heal to the pool if the player is sick
+  if (playerStatus && playerStatus !== 'normal') {
+    currentPool.push({
+      id: 'full_heal',
+      name: 'Full Heal',
+      description: `Cures your ${playerStatus.toUpperCase()} status condition!`,
+      stat: 'status' as any, 
+      amount: 0,
+    });
+  }
+
   const shuffled = currentPool.sort(() => 0.5 - Math.random());
   return shuffled.slice(0, count);
 };
@@ -69,7 +82,6 @@ export const scaleEnemyStats = (basePokemon: Pokemon, floor: number): Pokemon =>
   
   const upgradeableStats: StatKey[] = ['maxHp', 'attack', 'defense', 'speed'];
   
-  // Simulate the player's randomized stat gains for the enemy
   for (let i = 0; i < levelUps; i++) {
     const randomStat = upgradeableStats[Math.floor(Math.random() * upgradeableStats.length)];
     const increaseAmount = Math.floor(Math.random() * 2) + 1; // 1 or 2

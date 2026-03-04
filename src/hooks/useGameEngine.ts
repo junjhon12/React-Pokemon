@@ -154,7 +154,33 @@ export const useGameEngine = () => {
     const currentMaxXp = newPlayer.maxXp || 100;
     const totalXp = currentXp + xpGain;
     const oldLevel = newPlayer.level || 1; 
-
+    setUpgrades([...baseLoot]);
+    // Check if we are already dealing with a pending move from a level-up
+    const currentPendingMove = useGameStore.getState().pendingMove;
+    
+    // Only roll for a move drop if they aren't already replacing a move from leveling up
+    if (!currentPendingMove) {
+      const droppedMove = await attemptMoveDrop(currentPlayer);
+      
+      if (droppedMove) {
+        // Check if player already knows this move
+        const alreadyKnows = currentPlayer.moves?.some(m => m.name.toLowerCase() === droppedMove.name.toLowerCase());
+        
+        if (!alreadyKnows) {
+          if (currentPlayer.moves && currentPlayer.moves.length < 4) {
+            // Auto-learn if they have an empty slot
+            currentPlayer.moves.push(droppedMove);
+            setGameLog((prev: string[]) => [...prev, `${currentPlayer.name} found and learned ${droppedMove.name}!`]);
+            setPlayer({...currentPlayer});
+          } else {
+            // Trigger your existing MoveReplacementOverlay!
+            useGameStore.getState().setPendingMove(droppedMove);
+          }
+        } else {
+          setGameLog((prev: string[]) => [...prev, `You found a ${droppedMove.name} scroll, but ${currentPlayer.name} already knows it.`]);
+        }
+      }
+    }
     if (totalXp >= currentMaxXp) {
       const overflow = totalXp - currentMaxXp;
       
@@ -477,6 +503,60 @@ export const useGameEngine = () => {
     
     setGameLog((prev) => [...prev, `${player.name} gave up on learning ${pendingMove.name}.`]);
     setPendingMove(null);
+  };
+
+  const attemptMoveDrop = async (currentPlayer: Pokemon) => {
+    // 14% chance to drop a move
+    if (Math.random() > 0.14) return null;
+
+    const isTypeMatch = Math.random() <= 0.80;
+    const rarityRoll = Math.random();
+    
+    let targetMinPower = 0;
+    let targetMaxPower = 50;
+    let rarityName = "Common";
+
+    if (rarityRoll > 0.98) { targetMinPower = 101; targetMaxPower = 250; rarityName = "S-Tier"; }
+    else if (rarityRoll > 0.95) { targetMinPower = 80; targetMaxPower = 100; rarityName = "Rare"; }
+    else if (rarityRoll > 0.75) { targetMinPower = 55; targetMaxPower = 75; rarityName = "Uncommon"; }
+
+    let fetchedMove = null;
+    let attempts = 0;
+    const maxAttempts = 6; // Limit API calls so the game doesn't freeze
+
+    // Keep looking until we find a move that fits the power requirement, or we run out of attempts
+    while (!fetchedMove && attempts < maxAttempts) {
+      attempts++;
+      let candidateMove = null;
+
+      if (isTypeMatch && currentPlayer.learnset && currentPlayer.learnset.length > 0) {
+        // Pick a random move from the player's learnset
+        const randomLearnsetMove = currentPlayer.learnset[Math.floor(Math.random() * currentPlayer.learnset.length)];
+        candidateMove = await fetchMoveDetails(randomLearnsetMove.url);
+      } else {
+        // Random move ID from PokeAPI
+        const randomMoveId = Math.floor(Math.random() * 826) + 1;
+        candidateMove = await fetchMoveDetails(`https://pokeapi.co/api/v2/move/${randomMoveId}`);
+      }
+
+      if (candidateMove) {
+        const movePower = candidateMove.power || 0; // Status moves have null power in PokeAPI, treat as 0
+        
+        // Check if the move is within our power tier!
+        if (movePower >= targetMinPower && movePower <= targetMaxPower) {
+          fetchedMove = candidateMove;
+        }
+      }
+    }
+
+    // If we failed to find a matching move after 6 tries, just abort the drop
+    // (This prevents giving the player a Common move when the UI promised an S-Tier)
+    if (!fetchedMove) return null;
+
+    // Only log the drop if we successfully found one!
+    setGameLog((prev: string[]) => [...prev, `An enemy dropped a ${rarityName} move scroll!`]);
+
+    return fetchedMove;
   };
 
   const gameOver = player?.stats.hp === 0 || enemy?.stats.hp === 0;

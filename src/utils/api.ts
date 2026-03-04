@@ -47,17 +47,19 @@ export const fetchMoveDetails = async (url: string): Promise<Move | null> => {
   }
 };
 
-// ADDED: targetLevel parameter to calculate valid enemy moves based on floor
 export const getRandomPokemon = async (id: number, isPlayer: boolean = false, targetLevel: number = 1): Promise<Pokemon> => {
   const response = await fetch(`${POKE_API_URL}${id}`);
   const data = await response.json();
 
-  const hp = data.stats.find((s: PokeAPIStat) => s.stat.name === 'hp').base_stat;
-  const attack = data.stats.find((s: PokeAPIStat) => s.stat.name === 'attack').base_stat;
-  const defense = data.stats.find((s: PokeAPIStat) => s.stat.name === 'defense').base_stat;
-  const speed = data.stats.find((s: PokeAPIStat) => s.stat.name === 'speed').base_stat;
+  // Normalize stats down to a 1-4 scale (Base starters are usually 45-65. 45/15 = 3, 60/15 = 4)
+  const normalizeStat = (base: number) => Math.max(1, Math.round(base / 15));
 
-  // 1. Extract all moves learned via "level-up" for BOTH players and enemies
+  const rawHp = data.stats.find((s: PokeAPIStat) => s.stat.name === 'hp').base_stat;
+  const hp = normalizeStat(rawHp) * 5; // Multiplied by 5 to allow actual combat pacing
+  const attack = normalizeStat(data.stats.find((s: PokeAPIStat) => s.stat.name === 'attack').base_stat);
+  const defense = normalizeStat(data.stats.find((s: PokeAPIStat) => s.stat.name === 'defense').base_stat);
+  const speed = normalizeStat(data.stats.find((s: PokeAPIStat) => s.stat.name === 'speed').base_stat);
+
   const levelUpMoves = data.moves.map((m: any) => {
     const levelDetail = m.version_group_details.find((v: any) => v.move_learn_method.name === 'level-up');
     if (levelDetail) {
@@ -66,7 +68,6 @@ export const getRandomPokemon = async (id: number, isPlayer: boolean = false, ta
     return null;
   }).filter(Boolean);
 
-  // 2. Remove duplicates (taking the earliest level learned)
   const uniqueMoves = new Map();
   levelUpMoves.forEach((m: any) => {
     if (!uniqueMoves.has(m.name) || uniqueMoves.get(m.name).level > m.level) {
@@ -74,20 +75,16 @@ export const getRandomPokemon = async (id: number, isPlayer: boolean = false, ta
     }
   });
   
-  // Sort by level ascending
   const learnset = Array.from(uniqueMoves.values()).sort((a: any, b: any) => a.level - b.level);
 
   let moveUrlsToFetch: string[] = [];
 
   if (isPlayer) {
-    // Start the player with the earliest moves (up to 3)
     moveUrlsToFetch = learnset.slice(0, 3).map((m: any) => m.url);
   } else {
-    // Enemy gets up to 4 of the most recent moves they would have learned by their targetLevel
     const availableMoves = learnset.filter((m: any) => m.level <= targetLevel);
     const recentMoves = availableMoves.slice(-4);
     
-    // Fallback: if somehow empty, just give them the very first move
     if (recentMoves.length === 0 && learnset.length > 0) {
        recentMoves.push(learnset[0]);
     }
@@ -122,7 +119,6 @@ export const getRandomPokemon = async (id: number, isPlayer: boolean = false, ta
 };
 
 export const fetchEquipmentFromPokeAPI = async (itemName: string): Promise<Equipment | null> => {
-  // ... existing code stays the same
   try {
     const response = await fetch(`https://pokeapi.co/api/v2/item/${itemName}`);
     const data = await response.json();
@@ -149,7 +145,6 @@ export const fetchEquipmentFromPokeAPI = async (itemName: string): Promise<Equip
 };
 
 export const fetchPokemonCard = async () => {
-  // ... existing code stays the same
   try {
     const bulbasaur = await tcgdex.fetch('cards', 'base1-44');
     const charmander = await tcgdex.fetch('cards', 'base1-46');

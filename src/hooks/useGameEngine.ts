@@ -30,26 +30,32 @@ export const useGameEngine = () => {
      useGameStore.setState({ highScore: newScore });
   }, [highScore]);
 
+  // NEW: Random Stat Selection Level Up
   function handleLevelUp(currentStats: Pokemon, overflowXp: number) {
       const newLevel = (currentStats.level || 1) + 1;
-      const growthRate = 0.1; 
-      const newMaxHp = Math.floor(currentStats.stats.maxHp * (1 + growthRate));
-      const newAttack = Math.floor(currentStats.stats.attack * (1 + growthRate));
-      const newSpeed = Math.floor(currentStats.stats.speed * (1 + growthRate));
       const newMaxXp = Math.floor((currentStats.maxXp || 100) * 1.2);
 
+      const newStats = { ...currentStats.stats };
+      const upgradeableStats: StatKey[] = ['maxHp', 'attack', 'defense', 'speed'];
+      
+      const randomStat = upgradeableStats[Math.floor(Math.random() * upgradeableStats.length)];
+      const increaseAmount = Math.floor(Math.random() * 2) + 1; // Increases by 1 or 2
+      
+      const actualIncrease = randomStat === 'maxHp' ? increaseAmount * 5 : increaseAmount;
+      newStats[randomStat] += actualIncrease;
+      newStats.hp = newStats.maxHp; // Fully heal on level up
+
+      const statName = randomStat === 'maxHp' ? 'HP' : randomStat.toUpperCase();
+
       return {
-        ...currentStats,
-        level: newLevel,
-        stats: {
-          ...currentStats.stats,
-          maxHp: newMaxHp,
-          hp: newMaxHp,
-          attack: newAttack,
-          speed: newSpeed
+        player: {
+          ...currentStats,
+          level: newLevel,
+          stats: newStats,
+          xp: overflowXp,
+          maxXp: newMaxXp
         },
-        xp: overflowXp,
-        maxXp: newMaxXp
+        message: `${statName} increased by ${actualIncrease}!`
       };
   }
 
@@ -64,8 +70,8 @@ export const useGameEngine = () => {
     const initialEnemyId = earlyEnemies[Math.floor(Math.random() * earlyEnemies.length)];
 
     const [p1, p2] = await Promise.all([
-      getRandomPokemon(starterId, true, 1), // Pass level 1
-      getRandomPokemon(initialEnemyId, false, 1) // Pass level 1
+      getRandomPokemon(starterId, true, 1), 
+      getRandomPokemon(initialEnemyId, false, 1) 
     ]);
 
     const playerMon = { ...p1, isPlayer: true };
@@ -108,19 +114,22 @@ export const useGameEngine = () => {
       } while (legendaryPokemonIds.includes(randomId) || pseudoLegendaryIds.includes(randomId));
     }
 
-    // PASS TARGET FLOOR AS THE TARGET LEVEL FOR PROPER ENEMY MOVES
     const newEnemy = await getRandomPokemon(randomId, false, targetFloor);
-
     const scaledEnemy = scaleEnemyStats(newEnemy, targetFloor);
 
+    // CHANGED: Use flat amounts instead of multipliers so the boss is actually scary on the new 1-4 scale
     if (bossEnemy) {
-      scaledEnemy.stats.hp = Math.floor(scaledEnemy.stats.hp * 1.5);
-      scaledEnemy.stats.attack = Math.floor(scaledEnemy.stats.attack * 1.5);
-      scaledEnemy.stats.speed = Math.floor(scaledEnemy.stats.speed * 1.5);
+      scaledEnemy.stats.maxHp += 20;
+      scaledEnemy.stats.hp = scaledEnemy.stats.maxHp;
+      scaledEnemy.stats.attack += 3;
+      scaledEnemy.stats.defense += 2;
+      scaledEnemy.stats.speed += 2;
     } else if (miniBossEnemy) {
-      scaledEnemy.stats.hp = Math.floor(scaledEnemy.stats.hp * 1.2);
-      scaledEnemy.stats.attack = Math.floor(scaledEnemy.stats.attack * 1.2);
-      scaledEnemy.stats.speed = Math.floor(scaledEnemy.stats.speed * 1.2);
+      scaledEnemy.stats.maxHp += 10;
+      scaledEnemy.stats.hp = scaledEnemy.stats.maxHp;
+      scaledEnemy.stats.attack += 1;
+      scaledEnemy.stats.defense += 1;
+      scaledEnemy.stats.speed += 1;
     }
 
     setEnemy({ ...scaledEnemy, isPlayer: false });
@@ -148,10 +157,13 @@ export const useGameEngine = () => {
 
     if (totalXp >= currentMaxXp) {
       const overflow = totalXp - currentMaxXp;
-      newPlayer = handleLevelUp(newPlayer, overflow);
+      
+      // Updated Level Up Logger
+      const levelUpData = handleLevelUp(newPlayer, overflow);
+      newPlayer = levelUpData.player;
       
       const currentLevel = newPlayer.level || 1;
-      setGameLog((prev: string[]) => [...prev, `Level Up! You are now Lvl ${currentLevel}!`]);
+      setGameLog((prev: string[]) => [...prev, `Level Up! You are now Lvl ${currentLevel}!`, levelUpData.message]);
       
       newPlayer.moves = newPlayer.moves || [];
       
@@ -190,7 +202,7 @@ export const useGameEngine = () => {
           name: randomItemName.replace('-', ' ').toUpperCase(),
           description: 'A powerful held item generated locally.',
           spriteUrl: 'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/items/master-ball.png',
-          statModifiers: { attack: 10, defense: 10, maxHp: 20 }
+          statModifiers: { attack: 2, defense: 2, maxHp: 5 } // Scaled fallback item stats
         };
       }
 
@@ -253,8 +265,10 @@ export const useGameEngine = () => {
     const isCrit = (Math.random() * 100) < enemyCrit;
     const critMultiplier = isCrit ? 1.5 : 1;
     const effectiveness = getTypeEffectiveness(randomMove.type, currentPlayer.types);
+    
     const playerDef = getEffectiveStat(currentPlayer, 'defense');
-    const defenseMitigation = 100 / (100 + playerDef);
+    const defenseMitigation = 10 / (10 + playerDef); // FIXED MITIGATION FORMULA
+    
     const enemyAtk = getEffectiveStat(currentEnemy, 'attack');
     const baseDamage = (enemyAtk * randomMove.power) / 50;
     const finalDamage = Math.max(1, Math.floor(baseDamage * effectiveness * defenseMitigation * critMultiplier));
@@ -341,8 +355,10 @@ export const useGameEngine = () => {
     const isCrit = (Math.random() * 100) < playerCrit;
     const critMultiplier = isCrit ? 1.5 : 1; 
     const effectiveness = getTypeEffectiveness(move.type, enemy.types);
+    
     const enemyDef = getEffectiveStat(enemy, 'defense');
-    const defenseMitigation = 100 / (100 + enemyDef);
+    const defenseMitigation = 10 / (10 + enemyDef); // FIXED MITIGATION FORMULA
+    
     const playerAtk = getEffectiveStat(player, 'attack');
     const baseDamage = (playerAtk * move.power) / 50;
     const finalDamage = Math.max(1, Math.floor(baseDamage * effectiveness * defenseMitigation * critMultiplier));
@@ -420,7 +436,7 @@ export const useGameEngine = () => {
         xp: player.xp,
         maxXp: player.maxXp,
         equipment: player.equipment,
-        moves: player.moves // CRITICAL FIX: Transfer the moves the player learned, don't revert them!
+        moves: player.moves 
       });
       
       setGameLog((prev: string[]) => [...prev, `What? ${player.name} is evolving!`, `Congratulations! You evolved into ${evolvedBase.name}!`]);

@@ -2,14 +2,13 @@ import type { Pokemon, StatKey } from '../types/pokemon';
 import { type Upgrade } from '../types/upgrade';
 
 export const EVOLUTION_MAP: Record<number, number> = {
-  1: 2, 2: 3,       // Bulbasaur -> Ivysaur -> Venusaur
-  4: 5, 5: 6,       // Charmander -> Charmeleon -> Charizard
-  7: 8, 8: 9,       // Squirtle -> Wartortle -> Blastoise
-  10: 11, 11: 12,   // Caterpie line
-  13: 14, 14: 15,   // Weedle line
-  16: 17, 17: 18,   // Pidgey line
-  25: 26,           // Pikachu -> Raichu
-  // You can easily expand this list later!
+  1: 2, 2: 3,       
+  4: 5, 5: 6,       
+  7: 8, 8: 9,       
+  10: 11, 11: 12,   
+  13: 14, 14: 15,   
+  16: 17, 17: 18,   
+  25: 26,           
 };
 
 const TYPE_CHART: Record<string, string[]> = {
@@ -34,7 +33,6 @@ const TYPE_CHART: Record<string, string[]> = {
 };
 
 export const getTypeEffectiveness = (moveType: string, defenderTypes: string[]): number => {
-  // If the move type exists in our chart, check if the defender has a weakness to it
   const isSuperEffective = TYPE_CHART[moveType]?.some((weakness) => 
     defenderTypes.includes(weakness)
   );
@@ -43,16 +41,15 @@ export const getTypeEffectiveness = (moveType: string, defenderTypes: string[]):
 };
 
 const UPGRADES: Upgrade[] = [
-  { id: '1', name: 'Protein', description: 'Increases Attack by 5', stat: 'attack', amount: 5 },
-  { id: '2', name: 'Carbos', description: 'Increases Speed by 5', stat: 'speed', amount: 5 },
-  { id: '3', name: 'HP Up', description: 'Increases Max HP by 10', stat: 'maxHp', amount: 10 },
-  { id: '4', name: 'Potion', description: 'Heal 20 HP', stat: 'hp', amount: 20 },
-  { id: '5', name: 'Iron', description: 'Increases Attack by 8 (Rare)', stat: 'attack', amount: 8 }, // Rare version
+  { id: '1', name: 'Protein', description: 'Increases Attack by 1', stat: 'attack', amount: 1 },
+  { id: '2', name: 'Carbos', description: 'Increases Speed by 1', stat: 'speed', amount: 1 },
+  { id: '3', name: 'HP Up', description: 'Increases Max HP by 5', stat: 'maxHp', amount: 5 },
+  { id: '4', name: 'Potion', description: 'Heal 15 HP', stat: 'hp', amount: 15 },
+  { id: '5', name: 'Iron', description: 'Increases Defense by 1', stat: 'defense', amount: 1 }, 
 ];
 
 export const getRandomUpgrades = (count: number, playerId?: number): Upgrade[] => {
   const currentPool = [...UPGRADES];
-  // Shuffle the array and take the first 'count' items
   if (playerId && EVOLUTION_MAP[playerId]) {
     currentPool.push({
       id: 'evo_stone',
@@ -67,18 +64,24 @@ export const getRandomUpgrades = (count: number, playerId?: number): Upgrade[] =
 };
 
 export const scaleEnemyStats = (basePokemon: Pokemon, floor: number): Pokemon => {
-  const multiplier = 1 + (floor * 0.1); 
+  const levelUps = floor > 1 ? floor - 1 : 0;
+  const newStats = { ...basePokemon.stats };
+  
+  const upgradeableStats: StatKey[] = ['maxHp', 'attack', 'defense', 'speed'];
+  
+  // Simulate the player's randomized stat gains for the enemy
+  for (let i = 0; i < levelUps; i++) {
+    const randomStat = upgradeableStats[Math.floor(Math.random() * upgradeableStats.length)];
+    const increaseAmount = Math.floor(Math.random() * 2) + 1; // 1 or 2
+    newStats[randomStat] += randomStat === 'maxHp' ? increaseAmount * 5 : increaseAmount;
+  }
+  
+  newStats.hp = newStats.maxHp;
 
   return {
     ...basePokemon,
     level: floor,
-    stats: {
-      ...basePokemon.stats, // Access stats object
-      maxHp: Math.floor(basePokemon.stats.maxHp * multiplier),
-      hp: Math.floor(basePokemon.stats.maxHp * multiplier),
-      attack: Math.floor(basePokemon.stats.attack * multiplier),
-      speed: Math.floor(basePokemon.stats.speed * multiplier),
-    }
+    stats: newStats
   };
 };
 

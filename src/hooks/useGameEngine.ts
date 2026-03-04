@@ -60,13 +60,12 @@ export const useGameEngine = () => {
     setGameLog(['Welcome to the Dungeon!', 'Battle Start!']);
     setUpgrades([]);
 
-    // Select a weak, early route Pokemon for the very first battle
-    const earlyEnemies = [10, 13, 16, 19, 21, 29, 32, 41, 43, 46, 69]; // Caterpie, Weedle, Pidgey, Rattata, etc.
+    const earlyEnemies = [10, 13, 16, 19, 21, 29, 32, 41, 43, 46, 69]; 
     const initialEnemyId = earlyEnemies[Math.floor(Math.random() * earlyEnemies.length)];
 
     const [p1, p2] = await Promise.all([
-      getRandomPokemon(starterId, true), 
-      getRandomPokemon(initialEnemyId, false)
+      getRandomPokemon(starterId, true, 1), // Pass level 1
+      getRandomPokemon(initialEnemyId, false, 1) // Pass level 1
     ]);
 
     const playerMon = { ...p1, isPlayer: true };
@@ -82,7 +81,6 @@ export const useGameEngine = () => {
     } else {
       setPlayerTurn(false);
       setGameLog((prev: string[]) => [...prev, `${p2.name} is faster!`]);
-      // Trigger enemy turn logic immediately
       executeEnemyTurn(playerMon, enemyMon);
     }
   };
@@ -91,30 +89,27 @@ export const useGameEngine = () => {
     setPlayerTurn(true);
 
     const bossEnemy = targetFloor % 10 === 0;
-    const legendaryPokemonIds = [144, 145, 146, 150, 151]; // Added Mew
+    const legendaryPokemonIds = [144, 145, 146, 150, 151]; 
     const miniBossEnemy = targetFloor % 5 === 0 && !bossEnemy;
-    const pseudoLegendaryIds = [65, 94, 115, 130, 143, 149]; // Alakazam, Gengar, Kangaskhan, Gyarados, Snorlax, Dragonite
+    const pseudoLegendaryIds = [65, 94, 115, 130, 143, 149]; 
 
     let randomId;
 
     if (bossEnemy) {
-      // Pull only from Legendaries for floor 10, 20, 30...
       randomId = legendaryPokemonIds[Math.floor(Math.random() * legendaryPokemonIds.length)];
     } else if (miniBossEnemy) {
-      // Pull only from Mini-bosses for floor 5, 15, 25...
       randomId = pseudoLegendaryIds[Math.floor(Math.random() * pseudoLegendaryIds.length)];
     } else if (targetFloor <= 3) {
-      // Pull from early game weak pool for floors 1-3
       const earlyEnemies = [10, 13, 16, 19, 21, 29, 32, 41, 43, 46, 69];
       randomId = earlyEnemies[Math.floor(Math.random() * earlyEnemies.length)];
     } else {
-      // General floors: Randomize 1-151, but EXCLUDE legendaries and mini-bosses
       do {
         randomId = Math.floor(Math.random() * 151) + 1;
       } while (legendaryPokemonIds.includes(randomId) || pseudoLegendaryIds.includes(randomId));
     }
 
-    const newEnemy = await getRandomPokemon(randomId, false);
+    // PASS TARGET FLOOR AS THE TARGET LEVEL FOR PROPER ENEMY MOVES
+    const newEnemy = await getRandomPokemon(randomId, false, targetFloor);
 
     const scaledEnemy = scaleEnemyStats(newEnemy, targetFloor);
 
@@ -414,16 +409,20 @@ export const useGameEngine = () => {
 
     if (upgrade.stat === 'evolve') {
       const nextId = EVOLUTION_MAP ? EVOLUTION_MAP[player.id] : player.id + 1; 
-      const evolvedBase = await getRandomPokemon(nextId, true);
       const currentLevel = player.level || 1;
+      
+      const evolvedBase = await getRandomPokemon(nextId, true, currentLevel);
       const scaledEvolved = scaleEnemyStats(evolvedBase, currentLevel);
+      
       setPlayer({
         ...scaledEvolved,
         isPlayer: true,
         xp: player.xp,
         maxXp: player.maxXp,
-        equipment: player.equipment 
+        equipment: player.equipment,
+        moves: player.moves // CRITICAL FIX: Transfer the moves the player learned, don't revert them!
       });
+      
       setGameLog((prev: string[]) => [...prev, `What? ${player.name} is evolving!`, `Congratulations! You evolved into ${evolvedBase.name}!`]);
     } else {
       setPlayer((prev: Pokemon | null) => {

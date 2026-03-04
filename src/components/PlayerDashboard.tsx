@@ -1,6 +1,7 @@
 import { type Move } from '../types/move';
 import { getEffectiveStat } from '../utils/gameLogic';
 import { useGameStore } from '../store/gameStore';
+import { HealthBar } from './HealthBar';
 
 interface PlayerDashboardProps {
   handleMoveClick: (move: Move) => void;
@@ -11,6 +12,17 @@ export const PlayerDashboard = ({ handleMoveClick }: PlayerDashboardProps) => {
 
   if (!player || !enemy) return null;
 
+  const getTypeColor = (type: string) => {
+    const colors: Record<string, string> = {
+      fire: 'bg-orange-600', water: 'bg-blue-600', grass: 'bg-green-600',
+      electric: 'bg-yellow-500', psychic: 'bg-pink-500', ice: 'bg-cyan-400',
+      dragon: 'bg-indigo-700', ghost: 'bg-purple-800', normal: 'bg-gray-500'
+    };
+    return colors[type.toLowerCase()] || 'bg-gray-600';
+  };
+
+  const xpPercentage = ((player.xp || 0) / (player.maxXp || 1)) * 100;
+
   return (
     // order-3 places this entire block between the Arena and the Log on mobile
     <div className='order-3 md:order-0 w-full md:w-100 bg-[#d3d3d3] flex flex-col md:border-r-4 border-black shrink-0 text-black'>
@@ -19,16 +31,57 @@ export const PlayerDashboard = ({ handleMoveClick }: PlayerDashboardProps) => {
       <div className='order-1 md:order-3 min-h-30 md:h-62.5 bg-[#1a1a24] p-3 md:p-4 flex flex-col justify-end border-b-4 md:border-b-0 md:border-t-4 border-black'>
         {playerTurn ? (
           <div className="grid grid-cols-2 gap-2 h-full">
-            {player.moves?.map((move, index) => (
-              <button
-                key={index}
-                onClick={() => handleMoveClick(move)}
-                className="bg-transparent border-2 border-white hover:bg-white hover:text-black text-white font-bold uppercase text-xs md:text-sm rounded transition-all active:scale-95 flex flex-col items-center justify-center p-2 cursor-pointer"
-              >
-                <span className="text-sm md:text-lg mb-0.5 md:mb-1 text-center leading-tight">{move.name}</span>
-                <span className="text-[8px] md:text-[10px] opacity-70">{move.type}</span>
-              </button>
-            ))}
+            {player.moves?.map((move, index) => {
+              const isOutOfPP = move.pp <= 0;
+              return (
+                <button
+                  key={index}
+                  onClick={() => handleMoveClick(move)}
+                  disabled={isOutOfPP}
+                  className={`relative p-2 rounded border-2 text-left transition-all flex flex-col justify-between ${
+                    isOutOfPP 
+                      ? 'bg-gray-900 border-gray-900 opacity-40 cursor-not-allowed' 
+                      : 'bg-gray-800 border-white hover:bg-white group cursor-pointer'
+                  }`}
+                >
+                  <div className="flex justify-between items-start w-full">
+                    <span className={`font-bold text-[10px] md:text-xs uppercase truncate w-24 transition-colors ${!isOutOfPP ? 'text-white group-hover:text-black' : 'text-gray-500'}`}>
+                      {move.name}
+                    </span>
+                    <div className={`w-2 h-2 rounded-full ${getTypeColor(move.type)} shadow-sm`} title={move.type} />
+                  </div>
+
+                  <div className="flex justify-between items-end w-full mt-1">
+                    <div className="flex gap-2 text-[8px] md:text-[9px]">
+                      <div className="flex flex-col">
+                        <span className="text-gray-500 uppercase leading-none">Pwr</span>
+                        <span className={`font-bold transition-colors ${!isOutOfPP ? 'text-gray-200 group-hover:text-gray-700' : 'text-gray-600'}`}>{move.power || '--'}</span>
+                      </div>
+                      <div className="flex flex-col">
+                        <span className="text-gray-500 uppercase leading-none">Acc</span>
+                        <span className={`font-bold transition-colors ${!isOutOfPP ? 'text-gray-200 group-hover:text-gray-700' : 'text-gray-600'}`}>{move.accuracy}%</span>
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <span className="text-gray-500 uppercase text-[8px] block leading-none">PP</span>
+                      <span className={`text-[9px] md:text-[10px] font-black transition-colors ${
+                        isOutOfPP ? 'text-red-900' : 
+                        move.pp < 3 ? 'text-red-500' : 
+                        'text-white group-hover:text-black'
+                      }`}>
+                        {move.pp}/{move.maxPp || move.pp}
+                      </span>
+                    </div>
+                  </div>
+
+                  {isOutOfPP && (
+                    <div className="absolute inset-0 flex items-center justify-center bg-black/60 rounded">
+                      <span className="text-[10px] font-black text-red-600 uppercase tracking-widest">DEPLETED</span>
+                    </div>
+                  )}
+                </button>
+              );
+            })}
           </div>
         ) : (
           <div className="h-full flex items-center justify-center">

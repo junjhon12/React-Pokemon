@@ -135,7 +135,7 @@ function App() {
                     </div>
 
                     <div className="mb-2 md:mb-10 scale-75 origin-bottom-right md:scale-100">
-                      <PokemonCard pokemon={player} />
+                      <PokemonCard pokemon={player} isPlayer={true} />
                     </div>
                   </div>
                 </>

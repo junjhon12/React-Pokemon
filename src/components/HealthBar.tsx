@@ -7,12 +7,10 @@ interface HealthBarProps {
 
 export const HealthBar = ({ hp, maxHp, isPlayer, xpProgress }: HealthBarProps) => {
   const percent = maxHp > 0 ? (hp / maxHp) * 100 : 0;
-  // Professional color logic
   const color = percent < 20 ? 'bg-red-500' : percent < 50 ? 'bg-yellow-500' : 'bg-green-500';
 
   return (
     <div className="w-full bg-gray-950 border-2 border-gray-800 rounded-md overflow-hidden flex flex-col shadow-inner">
-      {/* HP Bar Layer */}
       <div className="h-3 relative">
         <div 
           className={`${color} h-full transition-all duration-500 ease-out shadow-[inset_0_1px_rgba(255,255,255,0.3)]`}
@@ -20,7 +18,6 @@ export const HealthBar = ({ hp, maxHp, isPlayer, xpProgress }: HealthBarProps) =
         />
       </div>
       
-      {/* Integrated XP Bar (Thin underline) */}
       {isPlayer && xpProgress !== undefined && (
         <div className="h-1 bg-gray-900 w-full border-t border-black/40">
           <div 

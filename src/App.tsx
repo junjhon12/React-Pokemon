@@ -11,10 +11,27 @@ import './App.css';
 
 function App() {
   const {
-    player, enemy, gameLog, floor, upgrades,
-    playerAnimation, enemyAnimation, isGameStarted, highScore,
-    pendingMove 
-  } = useGameStore();
+  player, enemy, gameLog, floor, upgrades,
+  playerAnimation, enemyAnimation, isGameStarted, highScore,
+  pendingMove, playerTurn,
+  dungeonModifier
+} = useGameStore();
+
+// Define a helper to get background styles based on the modifier
+const getArenaBackground = () => {
+  switch (dungeonModifier) {
+    case 'volcanic':
+      return 'bg-gradient-to-b from-orange-900/40 via-red-900/20 to-transparent';
+    case 'thick-fog':
+      return 'bg-gradient-to-b from-gray-500/40 via-slate-700/20 to-transparent backdrop-blur-[2px]';
+    case 'electric-terrain':
+      return 'bg-gradient-to-b from-yellow-600/30 via-blue-900/20 to-transparent';
+    case 'hail':
+      return 'bg-gradient-to-b from-cyan-100/20 via-blue-400/10 to-transparent';
+    default:
+      return 'bg-gradient-to-b from-blue-900/20 to-transparent';
+  }
+};
 
   const {
     startGame, selectStarterAndStart, handleMoveClick, handleSelectUpgrade, setIsGameStarted,

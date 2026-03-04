@@ -60,9 +60,13 @@ export const useGameEngine = () => {
     setGameLog(['Welcome to the Dungeon!', 'Battle Start!']);
     setUpgrades([]);
 
+    // Select a weak, early route Pokemon for the very first battle
+    const earlyEnemies = [10, 13, 16, 19, 21, 29, 32, 41, 43, 46, 69]; // Caterpie, Weedle, Pidgey, Rattata, etc.
+    const initialEnemyId = earlyEnemies[Math.floor(Math.random() * earlyEnemies.length)];
+
     const [p1, p2] = await Promise.all([
-      getRandomPokemon(starterId, true), // <-- Added true here
-      getRandomPokemon(Math.floor(Math.random() * 151) + 1, false)
+      getRandomPokemon(starterId, true), 
+      getRandomPokemon(initialEnemyId, false)
     ]);
 
     const playerMon = { ...p1, isPlayer: true };
@@ -84,16 +88,32 @@ export const useGameEngine = () => {
   };
 
   const spawnNewEnemy = async (targetFloor: number) => {
-    // Note: Removed setEnemy(null) to prevent the screen from going blank during the fetch
     setPlayerTurn(true);
 
     const bossEnemy = targetFloor % 10 === 0;
-    const legendaryPokemonIds = [144, 145, 146, 150]; 
+    const legendaryPokemonIds = [144, 145, 146, 150, 151]; // Added Mew
     const miniBossEnemy = targetFloor % 5 === 0 && !bossEnemy;
-    const pseduoLegendaryIds = [65, 94, 115, 248]; 
-    const randomId = bossEnemy ? legendaryPokemonIds[Math.floor(Math.random() * legendaryPokemonIds.length)] :
-                     miniBossEnemy ? pseduoLegendaryIds[Math.floor(Math.random() * pseduoLegendaryIds.length)] :
-                     Math.floor(Math.random() * 151) + 1;
+    const pseudoLegendaryIds = [65, 94, 115, 130, 143, 149]; // Alakazam, Gengar, Kangaskhan, Gyarados, Snorlax, Dragonite
+
+    let randomId;
+
+    if (bossEnemy) {
+      // Pull only from Legendaries for floor 10, 20, 30...
+      randomId = legendaryPokemonIds[Math.floor(Math.random() * legendaryPokemonIds.length)];
+    } else if (miniBossEnemy) {
+      // Pull only from Mini-bosses for floor 5, 15, 25...
+      randomId = pseudoLegendaryIds[Math.floor(Math.random() * pseudoLegendaryIds.length)];
+    } else if (targetFloor <= 3) {
+      // Pull from early game weak pool for floors 1-3
+      const earlyEnemies = [10, 13, 16, 19, 21, 29, 32, 41, 43, 46, 69];
+      randomId = earlyEnemies[Math.floor(Math.random() * earlyEnemies.length)];
+    } else {
+      // General floors: Randomize 1-151, but EXCLUDE legendaries and mini-bosses
+      do {
+        randomId = Math.floor(Math.random() * 151) + 1;
+      } while (legendaryPokemonIds.includes(randomId) || pseudoLegendaryIds.includes(randomId));
+    }
+
     const newEnemy = await getRandomPokemon(randomId, false);
 
     const scaledEnemy = scaleEnemyStats(newEnemy, targetFloor);
@@ -129,30 +149,30 @@ export const useGameEngine = () => {
     const currentXp = newPlayer.xp || 0;
     const currentMaxXp = newPlayer.maxXp || 100;
     const totalXp = currentXp + xpGain;
-    const oldLevel = newPlayer.level || 1; // Track old level
+    const oldLevel = newPlayer.level || 1; 
 
     if (totalXp >= currentMaxXp) {
       const overflow = totalXp - currentMaxXp;
       newPlayer = handleLevelUp(newPlayer, overflow);
-      setGameLog((prev: string[]) => [...prev, `Level Up! You are now Lvl ${newPlayer.level}!`]);
       
-      // NEW MOVE LEARNING LOGIC
-      const movesToLearn = newPlayer.learnset?.filter(m => m.level > oldLevel && m.level <= (newPlayer.level || 0)) || [];
+      const currentLevel = newPlayer.level || 1;
+      setGameLog((prev: string[]) => [...prev, `Level Up! You are now Lvl ${currentLevel}!`]);
+      
+      newPlayer.moves = newPlayer.moves || [];
+      
+      const movesToLearn = newPlayer.learnset?.filter(m => m.level > oldLevel && m.level <= currentLevel) || [];
       
       for (const moveInfo of movesToLearn) {
-        // Don't learn moves we already know
-        if (newPlayer.moves?.some(m => m.name.toLowerCase() === moveInfo.name.replace('-', ' '))) continue;
+        if (newPlayer.moves.some(m => m.name.toLowerCase() === moveInfo.name.replace('-', ' '))) continue;
 
         const fetchedMove = await fetchMoveDetails(moveInfo.url);
         if (fetchedMove) {
-          if ((newPlayer.moves?.length || 0) < 4) {
-            if (!newPlayer.moves) newPlayer.moves = [];
+          if (newPlayer.moves.length < 4) {
             newPlayer.moves.push(fetchedMove);
             setGameLog((prev: string[]) => [...prev, `${newPlayer.name} learned ${fetchedMove.name}!`]);
           } else {
-            // Trigger the UI to ask the user to replace a move
             useGameStore.getState().setPendingMove(fetchedMove);
-            break; // Stop checking for more moves to keep the UI clean (one at a time)
+            break; 
           }
         }
       }
@@ -198,7 +218,6 @@ export const useGameEngine = () => {
   };
 
   const executeEnemyTurn = async (currentPlayer: Pokemon, currentEnemy: Pokemon) => {
-    // FIX 2: Reduced delay from 1000ms to 500ms for faster gameplay
     await wait(500);
 
     if (currentEnemy.status === 'freeze') {
@@ -222,7 +241,6 @@ export const useGameEngine = () => {
       ? enemyMoves[Math.floor(Math.random() * enemyMoves.length)]
       : { name: 'Tackle', power: 40, accuracy: 100, type: 'normal' } as Move;
 
-    // FIX 3: Push log message before waiting for animation
     setGameLog((prev: string[]) => [...prev, `${currentEnemy.name} prepares to use ${randomMove.name}!`]);
 
     setEnemyAnimation('animate-lunge-left');
@@ -353,7 +371,6 @@ export const useGameEngine = () => {
     if (effectiveness > 1) logMsg += " It's Super Effective!";
     if (statusLog) logMsg += statusLog;
 
-    // Handle tick damage for player before finalizing turn
     if (player.status === 'burn' || player.status === 'poison') {
       const tickDamage = Math.max(1, Math.floor(player.stats.maxHp * 0.1));
       updatedPlayer.stats.hp = Math.max(player.stats.hp - tickDamage, 0);

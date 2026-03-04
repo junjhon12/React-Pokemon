@@ -4,6 +4,7 @@ export interface Move {
     power: number;
     accuracy: number;
     pp:number;
+    maxPp?: number;
     priority?: boolean;
     statusEffect?: 'burn' | 'poison' | 'paralyze' | 'freeze' | 'stunned';
 }

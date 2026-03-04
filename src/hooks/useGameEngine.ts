@@ -9,6 +9,18 @@ import { useGameStore } from '../store/gameStore';
 
 const wait = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
+// NEW: Helper function to strictly scale PP based on the Power of the move
+const applyPPScale = (move: Move): Move => {
+  const power = move.power || 0;
+  if (power > 100) move.maxPp = 2;       // S-Tier
+  else if (power >= 80) move.maxPp = 5;  // Rare
+  else if (power >= 55) move.maxPp = 10; // Uncommon
+  else move.maxPp = 20;                  // Common
+  
+  move.pp = move.maxPp; // Initialize fully charged
+  return move;
+};
+
 export const useGameEngine = () => {
   const {
     player, enemy, playerTurn, floor, highScore
@@ -30,7 +42,6 @@ export const useGameEngine = () => {
      useGameStore.setState({ highScore: newScore });
   }, [highScore]);
 
-  // NEW: Random Stat Selection Level Up
   function handleLevelUp(currentStats: Pokemon, overflowXp: number) {
       const newLevel = (currentStats.level || 1) + 1;
       const newMaxXp = Math.floor((currentStats.maxXp || 100) * 1.2);
@@ -39,11 +50,11 @@ export const useGameEngine = () => {
       const upgradeableStats: StatKey[] = ['maxHp', 'attack', 'defense', 'speed'];
       
       const randomStat = upgradeableStats[Math.floor(Math.random() * upgradeableStats.length)];
-      const increaseAmount = Math.floor(Math.random() * 2) + 1; // Increases by 1 or 2
+      const increaseAmount = Math.floor(Math.random() * 2) + 1; 
       
       const actualIncrease = randomStat === 'maxHp' ? increaseAmount * 5 : increaseAmount;
       newStats[randomStat] += actualIncrease;
-      newStats.hp = newStats.maxHp; // Fully heal on level up
+      newStats.hp = newStats.maxHp;
 
       const statName = randomStat === 'maxHp' ? 'HP' : randomStat.toUpperCase();
 
@@ -75,6 +86,10 @@ export const useGameEngine = () => {
     ]);
 
     const playerMon = { ...p1, isPlayer: true };
+    // NEW: Apply PP scaling to the starter's starting moves
+    if (playerMon.moves) {
+      playerMon.moves = playerMon.moves.map(applyPPScale);
+    }
     const enemyMon = { ...p2, isPlayer: false };
 
     setPlayer(playerMon);
@@ -117,7 +132,6 @@ export const useGameEngine = () => {
     const newEnemy = await getRandomPokemon(randomId, false, targetFloor);
     const scaledEnemy = scaleEnemyStats(newEnemy, targetFloor);
 
-    // CHANGED: Use flat amounts instead of multipliers so the boss is actually scary on the new 1-4 scale
     if (bossEnemy) {
       scaledEnemy.stats.maxHp += 20;
       scaledEnemy.stats.hp = scaledEnemy.stats.maxHp;
@@ -154,25 +168,21 @@ export const useGameEngine = () => {
     const currentMaxXp = newPlayer.maxXp || 100;
     const totalXp = currentXp + xpGain;
     const oldLevel = newPlayer.level || 1;
-    // Check if we are already dealing with a pending move from a level-up
+    
     const currentPendingMove = useGameStore.getState().pendingMove;
     
-    // Only roll for a move drop if they aren't already replacing a move from leveling up
     if (!currentPendingMove) {
       const droppedMove = await attemptMoveDrop(currentPlayer);
       
       if (droppedMove) {
-        // Check if player already knows this move
         const alreadyKnows = currentPlayer.moves?.some(m => m.name.toLowerCase() === droppedMove.name.toLowerCase());
         
         if (!alreadyKnows) {
           if (currentPlayer.moves && currentPlayer.moves.length < 4) {
-            // Auto-learn if they have an empty slot
             currentPlayer.moves.push(droppedMove);
             setGameLog((prev: string[]) => [...prev, `${currentPlayer.name} found and learned ${droppedMove.name}!`]);
             setPlayer({...currentPlayer});
           } else {
-            // Trigger your existing MoveReplacementOverlay!
             useGameStore.getState().setPendingMove(droppedMove);
           }
         } else {
@@ -180,18 +190,20 @@ export const useGameEngine = () => {
         }
       }
     }
+
     if (totalXp >= currentMaxXp) {
       const overflow = totalXp - currentMaxXp;
       
-      // Updated Level Up Logger
       const levelUpData = handleLevelUp(newPlayer, overflow);
       newPlayer = levelUpData.player;
       
+      // NEW: Fully restore all PP upon leveling up!
+      newPlayer.moves = newPlayer.moves?.map(m => ({ ...m, pp: m.maxPp || 20 }));
+      
       const currentLevel = newPlayer.level || 1;
-      setGameLog((prev: string[]) => [...prev, `Level Up! You are now Lvl ${currentLevel}!`, levelUpData.message]);
+      setGameLog((prev: string[]) => [...prev, `Level Up! You are now Lvl ${currentLevel}! PP Restored!`, levelUpData.message]);
       
       newPlayer.moves = newPlayer.moves || [];
-      
       const movesToLearn = newPlayer.learnset?.filter(m => m.level > oldLevel && m.level <= currentLevel) || [];
       
       for (const moveInfo of movesToLearn) {
@@ -199,11 +211,12 @@ export const useGameEngine = () => {
 
         const fetchedMove = await fetchMoveDetails(moveInfo.url);
         if (fetchedMove) {
+          const scaledMove = applyPPScale(fetchedMove); // Scale new level up move PP
           if (newPlayer.moves.length < 4) {
-            newPlayer.moves.push(fetchedMove);
-            setGameLog((prev: string[]) => [...prev, `${newPlayer.name} learned ${fetchedMove.name}!`]);
+            newPlayer.moves.push(scaledMove);
+            setGameLog((prev: string[]) => [...prev, `${newPlayer.name} learned ${scaledMove.name}!`]);
           } else {
-            useGameStore.getState().setPendingMove(fetchedMove);
+            useGameStore.getState().setPendingMove(scaledMove);
             break; 
           }
         }
@@ -212,6 +225,13 @@ export const useGameEngine = () => {
       newPlayer.xp = totalXp;
       setGameLog((prev: string[]) => [...prev, `You gained ${xpGain} XP.`]);
     }
+    
+    // NEW: Restore PP if they just cleared a boss floor
+    if (floor % 10 === 0) {
+      newPlayer.moves = newPlayer.moves?.map(m => ({ ...m, pp: m.maxPp || 20 }));
+      setGameLog((prev: string[]) => [...prev, `Boss defeated! All PP fully restored!`]);
+    }
+
     setPlayer(newPlayer);
     
     const baseLoot = getRandomUpgrades(2, currentPlayer.id);
@@ -227,7 +247,7 @@ export const useGameEngine = () => {
           name: randomItemName.replace('-', ' ').toUpperCase(),
           description: 'A powerful held item generated locally.',
           spriteUrl: 'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/items/master-ball.png',
-          statModifiers: { attack: 2, defense: 2, maxHp: 5 } // Scaled fallback item stats
+          statModifiers: { attack: 2, defense: 2, maxHp: 5 } 
         };
       }
 
@@ -292,7 +312,7 @@ export const useGameEngine = () => {
     const effectiveness = getTypeEffectiveness(randomMove.type, currentPlayer.types);
     
     const playerDef = getEffectiveStat(currentPlayer, 'defense');
-    const defenseMitigation = 10 / (10 + playerDef); // FIXED MITIGATION FORMULA
+    const defenseMitigation = 10 / (10 + playerDef); 
     
     const enemyAtk = getEffectiveStat(currentEnemy, 'attack');
     const baseDamage = (enemyAtk * randomMove.power) / 50;
@@ -335,8 +355,32 @@ export const useGameEngine = () => {
   const handleMoveClick = async (move: Move) => {
     if (!player || !enemy || !playerTurn) return;
 
+    // NEW: Check if the player has ANY PP left at all across all moves
+    const hasAnyPP = player.moves?.some(m => m.pp > 0);
+    let activeMove = move;
+    let isStruggle = false;
+
+    // Trigger Struggle if completely empty
+    if (!hasAnyPP) {
+      activeMove = { name: 'Struggle', type: 'normal', power: 50, accuracy: 100, pp: 1, maxPp: 1 } as Move;
+      isStruggle = true;
+      setGameLog((prev: string[]) => [...prev, `${player.name} has no PP left for any moves!`]);
+    } else if (move.pp <= 0) {
+      // Just block the click if they click an empty move but have other moves
+      setGameLog((prev: string[]) => [...prev, `${player.name} has no PP left for ${move.name}!`]);
+      return; 
+    }
+
     setPlayerTurn(false);
     let updatedPlayer = { ...player };
+
+    // NEW: Deduct PP from the clicked move (if not struggling)
+    if (!isStruggle) {
+      const moveIndex = updatedPlayer.moves?.findIndex(m => m.name === activeMove.name);
+      if (moveIndex !== undefined && moveIndex !== -1 && updatedPlayer.moves) {
+        updatedPlayer.moves[moveIndex].pp -= 1;
+      }
+    }
 
     if (player.status === 'freeze') {
       if (Math.random() < 0.2) {
@@ -355,10 +399,10 @@ export const useGameEngine = () => {
     }
 
     setPlayerAnimation('animate-lunge-right');
-    setGameLog((prev: string[]) => [...prev, `${player.name} used ${move.name}!`]);
+    setGameLog((prev: string[]) => [...prev, `${player.name} used ${activeMove.name}!`]);
 
     const hitChance = Math.random() * 100;
-    if (hitChance > move.accuracy) {
+    if (hitChance > activeMove.accuracy) {
       await wait(300);
       setGameLog((prev: string[]) => [...prev, `${player.name} missed!`]);
       setPlayerAnimation(''); 
@@ -379,24 +423,24 @@ export const useGameEngine = () => {
     const playerCrit = getEffectiveStat(player, 'critChance');
     const isCrit = (Math.random() * 100) < playerCrit;
     const critMultiplier = isCrit ? 1.5 : 1; 
-    const effectiveness = getTypeEffectiveness(move.type, enemy.types);
+    const effectiveness = getTypeEffectiveness(activeMove.type, enemy.types);
     
     const enemyDef = getEffectiveStat(enemy, 'defense');
-    const defenseMitigation = 10 / (10 + enemyDef); // FIXED MITIGATION FORMULA
+    const defenseMitigation = 10 / (10 + enemyDef); 
     
     const playerAtk = getEffectiveStat(player, 'attack');
-    const baseDamage = (playerAtk * move.power) / 50;
+    const baseDamage = (playerAtk * activeMove.power) / 50;
     const finalDamage = Math.max(1, Math.floor(baseDamage * effectiveness * defenseMitigation * critMultiplier));
 
     setEnemyAnimation('animate-shake'); 
     
     let appliedStatus = enemy.status;
     let statusLog = '';
-    if (move.statusEffect && (!enemy.status || enemy.status === 'normal')) {
-      if (move.power === 0 || Math.random() < 0.3) {
-        if (move.statusEffect !== 'stunned') {
-          appliedStatus = move.statusEffect as 'burn' | 'poison' | 'paralyze' | 'freeze';
-          statusLog = ` ${enemy.name} was inflicted with ${move.statusEffect}!`;
+    if (activeMove.statusEffect && (!enemy.status || enemy.status === 'normal')) {
+      if (activeMove.power === 0 || Math.random() < 0.3) {
+        if (activeMove.statusEffect !== 'stunned') {
+          appliedStatus = activeMove.statusEffect as 'burn' | 'poison' | 'paralyze' | 'freeze';
+          statusLog = ` ${enemy.name} was inflicted with ${activeMove.statusEffect}!`;
         }
       }
     }
@@ -407,17 +451,24 @@ export const useGameEngine = () => {
     if (effectiveness > 1) logMsg += " It's Super Effective!";
     if (statusLog) logMsg += statusLog;
 
-    if (player.status === 'burn' || player.status === 'poison') {
-      const tickDamage = Math.max(1, Math.floor(player.stats.maxHp * 0.1));
-      updatedPlayer.stats.hp = Math.max(player.stats.hp - tickDamage, 0);
+    // NEW: Apply Struggle Recoil
+    if (isStruggle) {
+       const recoil = Math.max(1, Math.floor(updatedPlayer.stats.maxHp * 0.25));
+       updatedPlayer.stats.hp = Math.max(0, updatedPlayer.stats.hp - recoil);
+       logMsg += ` ${player.name} took ${recoil} recoil damage!`;
+    }
+
+    if (updatedPlayer.status === 'burn' || updatedPlayer.status === 'poison') {
+      const tickDamage = Math.max(1, Math.floor(updatedPlayer.stats.maxHp * 0.1));
+      updatedPlayer.stats.hp = Math.max(updatedPlayer.stats.hp - tickDamage, 0);
       setPlayer(updatedPlayer);
       logMsg += ` ${player.name} took ${tickDamage} damage from ${player.status}!`;
-      
-      if (updatedPlayer.stats.hp <= 0) {
-        if (floor > highScore) setHighScore(floor);
-        setGameLog((prev: string[]) => [...prev, logMsg]);
-        return; 
-      }
+    }
+
+    if (updatedPlayer.stats.hp <= 0) {
+      if (floor > highScore) setHighScore(floor);
+      setGameLog((prev: string[]) => [...prev, logMsg]);
+      return; 
     }
 
     setEnemy((prev: Pokemon | null) => prev ? { ...prev, stats: { ...prev.stats, hp: remainingEnemyHp }, status: appliedStatus } : null);
@@ -505,7 +556,6 @@ export const useGameEngine = () => {
   };
 
   const attemptMoveDrop = async (currentPlayer: Pokemon) => {
-    // 14% chance to drop a move
     if (Math.random() > 0.14) return null;
 
     const isTypeMatch = Math.random() <= 0.80;
@@ -521,38 +571,29 @@ export const useGameEngine = () => {
 
     let fetchedMove = null;
     let attempts = 0;
-    const maxAttempts = 6; // Limit API calls so the game doesn't freeze
+    const maxAttempts = 6; 
 
-    // Keep looking until we find a move that fits the power requirement, or we run out of attempts
     while (!fetchedMove && attempts < maxAttempts) {
       attempts++;
       let candidateMove = null;
 
       if (isTypeMatch && currentPlayer.learnset && currentPlayer.learnset.length > 0) {
-        // Pick a random move from the player's learnset
         const randomLearnsetMove = currentPlayer.learnset[Math.floor(Math.random() * currentPlayer.learnset.length)];
         candidateMove = await fetchMoveDetails(randomLearnsetMove.url);
       } else {
-        // Random move ID from PokeAPI
         const randomMoveId = Math.floor(Math.random() * 826) + 1;
         candidateMove = await fetchMoveDetails(`https://pokeapi.co/api/v2/move/${randomMoveId}`);
       }
 
       if (candidateMove) {
-        const movePower = candidateMove.power || 0; // Status moves have null power in PokeAPI, treat as 0
-        
-        // Check if the move is within our power tier!
+        const movePower = candidateMove.power || 0; 
         if (movePower >= targetMinPower && movePower <= targetMaxPower) {
-          fetchedMove = candidateMove;
+          fetchedMove = applyPPScale(candidateMove); // NEW: Scale dropped move PP
         }
       }
     }
 
-    // If we failed to find a matching move after 6 tries, just abort the drop
-    // (This prevents giving the player a Common move when the UI promised an S-Tier)
     if (!fetchedMove) return null;
-
-    // Only log the drop if we successfully found one!
     setGameLog((prev: string[]) => [...prev, `An enemy dropped a ${rarityName} move scroll!`]);
 
     return fetchedMove;

@@ -37,7 +37,7 @@ export const getTypeEffectiveness = (moveType: string, defenderTypes: string[]):
     defenderTypes.includes(weakness)
   );
 
-  return isSuperEffective ? 2 : 1;
+  return isSuperEffective ? 4 : 1;
 };
 
 const UPGRADES: Upgrade[] = [

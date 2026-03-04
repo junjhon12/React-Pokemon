@@ -93,19 +93,17 @@ function App() {
                   handleSkipMove={handleSkipMove} 
                 />
               )}
-              {gameOver && upgrades.length === 0 && (
+              {gameOver && winner === 'Enemy' && (
                 <div className='absolute inset-0 bg-black/90 z-50 flex flex-col items-center justify-center p-4 text-center'>
                   <h2 className='text-4xl md:text-6xl font-black mb-6 text-yellow-400'>
-                    {winner === 'Player' ? 'VICTORY!' : 'GAME OVER'}
+                    GAME OVER
                   </h2>
-                  {winner === 'Enemy' && (
-                    <button 
-                      onClick={handleFinishRun}
-                      className='bg-red-600 hover:bg-red-700 border-2 border-white text-white px-6 md:px-8 py-3 md:py-4 rounded-xl font-bold text-lg md:text-xl cursor-pointer'
-                    >
-                      Finish Run
-                    </button>
-                  )}
+                  <button 
+                    onClick={handleFinishRun}
+                    className='bg-red-600 hover:bg-red-700 border-2 border-white text-white px-6 md:px-8 py-3 md:py-4 rounded-xl font-bold text-lg md:text-xl cursor-pointer'
+                  >
+                    Finish Run
+                  </button>
                 </div>
               )}
 

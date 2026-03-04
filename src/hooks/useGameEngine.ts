@@ -153,8 +153,7 @@ export const useGameEngine = () => {
     const currentXp = newPlayer.xp || 0;
     const currentMaxXp = newPlayer.maxXp || 100;
     const totalXp = currentXp + xpGain;
-    const oldLevel = newPlayer.level || 1; 
-    setUpgrades([...baseLoot]);
+    const oldLevel = newPlayer.level || 1;
     // Check if we are already dealing with a pending move from a level-up
     const currentPendingMove = useGameStore.getState().pendingMove;
     

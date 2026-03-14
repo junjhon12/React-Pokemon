@@ -8,8 +8,7 @@ import { useGameStore } from '../store/gameStore';
 const wait = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
 export const useCombat = (onEnemyDefeat: (enemy: Pokemon, player: Pokemon) => Promise<void>) => {
-  // Optimization: Use individual selectors for persistent values
-  // This prevents the hook from re-calculating unless these specific global values change.
+  // Atomic selectors for persistent values to minimize re-renders
   const floor = useGameStore(state => state.floor);
   const highScore = useGameStore(state => state.highScore);
   const setHighScore = useGameStore(state => state.setHighScore);

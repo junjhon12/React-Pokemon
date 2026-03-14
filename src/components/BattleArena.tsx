@@ -19,7 +19,6 @@ export const BattleArena = ({
   dungeonModifier 
 }: BattleArenaProps) => {
 
-  // Logic moved from App.tsx to keep the arena self-contained
   const getArenaBackground = () => {
     switch (dungeonModifier) {
       case 'volcanic':
@@ -31,12 +30,13 @@ export const BattleArena = ({
       case 'hail':
         return 'bg-gradient-to-b from-cyan-100/20 via-blue-400/10 to-transparent';
       default:
-        return 'bg-gradient-to-b from-blue-900/20 to-transparent';
+        // Default classic Pokémon background
+        return 'bg-gradient-to-b from-[#87ceeb] to-[#90ee90]';
     }
   };
 
   return (
-    <div className={`order-2 md:order-3 w-full min-h-[40vh] md:min-h-0 md:flex-1 relative overflow-hidden transition-colors duration-1000 ${getArenaBackground()}`}>
+    <div className={`w-full h-full relative overflow-hidden transition-colors duration-1000 ${getArenaBackground()}`}>
       {/* Enemy Side */}
       <div className="absolute top-4 md:top-12 left-0 w-full px-4 md:px-10 flex justify-between items-start z-10">
         <div className="scale-75 origin-top-left md:scale-100">

@@ -32,7 +32,7 @@ function App() {
     currentHighScores.push(newScore);
     currentHighScores.sort((a, b) => b.floor - a.floor); 
     localStorage.setItem('rogue-high-scores', JSON.stringify(currentHighScores.slice(0, 10))); 
-    resetRun(); // Persistence reset
+    resetRun(); 
   };
 
   return (
@@ -62,7 +62,8 @@ function App() {
 
             <CombatLog gameLog={gameLog} />
 
-            <div className='order-2 md:order-3 w-full min-h-[40vh] md:min-h-0 md:flex-1 relative bg-[#1a1a24] overflow-hidden'>
+            {/* FIXED: The container below now has h-[50vh] to ensure it doesn't collapse on mobile */}
+            <div className='order-2 md:order-3 w-full h-[50vh] md:h-auto md:flex-1 relative bg-[#1a1a24] overflow-hidden'>
               <LootOverlay upgrades={upgrades} handleSelectUpgrade={handleSelectUpgrade} />
               
               {pendingMove && (

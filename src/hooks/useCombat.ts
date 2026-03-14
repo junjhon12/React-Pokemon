@@ -12,11 +12,6 @@ export const useCombat = (onEnemyDefeat: (enemy: Pokemon, player: Pokemon) => Pr
   const highScore = useGameStore((state) => state.highScore);
   const setHighScore = useGameStore((state) => state.setHighScore);
 
-  /**
-   * Type-safe state patcher. 
-   * Uses unknown as a bridge to satisfy Zustand's Partial requirements 
-   * without ever resorting to 'any'.
-   */
   const patchState = (patch: Partial<GameState> | ((s: GameState) => Partial<GameState>)): void => {
     useGameStore.setState(patch as unknown as Partial<GameState>);
   };
@@ -30,7 +25,6 @@ export const useCombat = (onEnemyDefeat: (enemy: Pokemon, player: Pokemon) => Pr
     const logMsgs: string[] = [];
 
     Object.entries(stageChange).forEach(([stat, change]) => {
-      // Type guard to ensure we are only modifying valid stage stats
       if (stat in newStages) {
         const key = stat as StageStatKey;
         const current = newStages[key];
@@ -43,7 +37,8 @@ export const useCombat = (onEnemyDefeat: (enemy: Pokemon, player: Pokemon) => Pr
     });
 
     if (logMsgs.length > 0) {
-      patchState((s) => ({ gameLog: [...s.gameLog, ...logMsgs] }));
+      // FIX: Typed 's' as GameState
+      patchState((s: GameState) => ({ gameLog: [...s.gameLog, ...logMsgs] }));
     }
     return { ...mon, stages: newStages };
   };
@@ -52,19 +47,18 @@ export const useCombat = (onEnemyDefeat: (enemy: Pokemon, player: Pokemon) => Pr
     await wait(500);
     const { dungeonModifier } = useGameStore.getState();
 
-    // 1. Status Check logic
     if (currentEnemy.status === 'freeze' || currentEnemy.status === 'paralyze') {
       const isParalyzed = currentEnemy.status === 'paralyze' && Math.random() < 0.25;
       const remainsFrozen = currentEnemy.status === 'freeze' && Math.random() >= 0.2;
 
       if (isParalyzed || remainsFrozen) {
         const msg = isParalyzed ? `${currentEnemy.name} is paralyzed!` : `${currentEnemy.name} is frozen solid!`;
-        patchState((s) => ({ gameLog: [...s.gameLog, msg], playerTurn: true }));
+        patchState((s: GameState) => ({ gameLog: [...s.gameLog, msg], playerTurn: true }));
         return;
       }
       
       if (currentEnemy.status === 'freeze') {
-        patchState((s) => ({ 
+        patchState((s: GameState) => ({ 
           gameLog: [...s.gameLog, `${currentEnemy.name} thawed out!`],
           enemy: { ...currentEnemy, status: 'normal' }
         }));
@@ -77,9 +71,8 @@ export const useCombat = (onEnemyDefeat: (enemy: Pokemon, player: Pokemon) => Pr
         ? enemyMoves[Math.floor(Math.random() * enemyMoves.length)] 
         : { name: 'Tackle', power: 40, accuracy: 100, type: 'normal', pp: 10, maxPp: 10 } as Move;
 
-    patchState((s) => ({ gameLog: [...s.gameLog, `${currentEnemy.name} used ${move.name}!`] }));
+    patchState((s: GameState) => ({ gameLog: [...s.gameLog, `${currentEnemy.name} used ${move.name}!`] }));
     
-    // 2. Handle Support Moves without 'any'
     if (move.power === 0 && move.stageChange) {
       patchState({ enemyAnimation: 'animate-bounce' });
       const targetIsPlayer = move.target === 'enemy';
@@ -98,11 +91,10 @@ export const useCombat = (onEnemyDefeat: (enemy: Pokemon, player: Pokemon) => Pr
     const dodgeChance = getEffectiveStat(currentPlayer, 'dodge', dungeonModifier);
     if (Math.random() * 100 > move.accuracy || (Math.random() * 100) < dodgeChance) {
       const msg = Math.random() * 100 > move.accuracy ? `${currentEnemy.name} missed!` : `${currentPlayer.name} dodged!`;
-      patchState((s) => ({ gameLog: [...s.gameLog, msg], enemyAnimation: '', playerTurn: true }));
+      patchState((s: GameState) => ({ gameLog: [...s.gameLog, msg], enemyAnimation: '', playerTurn: true }));
       return;
     }
 
-    // 3. Damage Calculation
     const effectiveness = getTypeEffectiveness(move.type, currentPlayer.types);
     const isCrit = (Math.random() * 100) < getEffectiveStat(currentEnemy, 'critChance', dungeonModifier);
     const baseDmg = (getEffectiveStat(currentEnemy, 'attack', dungeonModifier) * move.power) / 50;
@@ -111,7 +103,7 @@ export const useCombat = (onEnemyDefeat: (enemy: Pokemon, player: Pokemon) => Pr
     const finalDamage = Math.max(1, Math.floor(baseDmg * effectiveness * mitigation * (isCrit ? 1.5 : 1)));
     const remainingHp = Math.max(currentPlayer.stats.hp - finalDamage, 0);
 
-    patchState((s) => ({ 
+    patchState((s: GameState) => ({ 
       playerAnimation: 'animate-shake',
       player: { ...currentPlayer, stats: { ...currentPlayer.stats, hp: remainingHp } },
       gameLog: [...s.gameLog, `${currentEnemy.name} dealt ${finalDamage} damage!${isCrit ? ' A Critical Hit!' : ''}`]
@@ -132,7 +124,7 @@ export const useCombat = (onEnemyDefeat: (enemy: Pokemon, player: Pokemon) => Pr
     if (!player || !enemy || !playerTurn) return;
 
     if (move.pp <= 0) {
-      patchState((s) => ({ gameLog: [...s.gameLog, `No PP left for ${move.name}!`] }));
+      patchState((s: GameState) => ({ gameLog: [...s.gameLog, `No PP left for ${move.name}!`] }));
       return; 
     }
 
@@ -143,9 +135,8 @@ export const useCombat = (onEnemyDefeat: (enemy: Pokemon, player: Pokemon) => Pr
     const updatedPlayer = { ...player, moves: updatedMoves };
 
     patchState({ player: updatedPlayer, playerAnimation: 'animate-lunge-right' });
-    patchState((s) => ({ gameLog: [...s.gameLog, `${player.name} used ${move.name}!`] }));
+    patchState((s: GameState) => ({ gameLog: [...s.gameLog, `${player.name} used ${move.name}!`] }));
 
-    // Support move handling
     if (move.power === 0 && move.stageChange) {
       const targetIsEnemy = move.target === 'enemy';
       const target = targetIsEnemy ? enemy : updatedPlayer;
@@ -168,7 +159,7 @@ export const useCombat = (onEnemyDefeat: (enemy: Pokemon, player: Pokemon) => Pr
     const enemyDodge = getEffectiveStat(enemy, 'dodge', dungeonModifier);
     if (Math.random() * 100 > move.accuracy || (Math.random() * 100) < enemyDodge) {
       const msg = Math.random() * 100 > move.accuracy ? `${player.name} missed!` : `${enemy.name} dodged!`;
-      patchState((s) => ({ gameLog: [...s.gameLog, msg], playerAnimation: '' }));
+      patchState((s: GameState) => ({ gameLog: [...s.gameLog, msg], playerAnimation: '' }));
       await executeEnemyTurn(updatedPlayer, enemy);
       return;
     }
@@ -181,7 +172,7 @@ export const useCombat = (onEnemyDefeat: (enemy: Pokemon, player: Pokemon) => Pr
     const finalDamage = Math.max(1, Math.floor(baseDmg * effectiveness * mitigation * (isCrit ? 1.5 : 1)));
     const remainingEnemyHp = Math.max(enemy.stats.hp - finalDamage, 0);
 
-    patchState((s) => ({ 
+    patchState((s: GameState) => ({ 
       enemyAnimation: 'animate-shake',
       enemy: { ...enemy, stats: { ...enemy.stats, hp: remainingEnemyHp } },
       gameLog: [...s.gameLog, `It dealt ${finalDamage} damage!${isCrit ? ' A Critical Hit!' : ''}`]

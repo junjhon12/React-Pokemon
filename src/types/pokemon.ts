@@ -5,6 +5,9 @@ import { type Equipment } from './equipment';
 export type StatKey = 'hp' | 'attack' | 'speed' | 'maxHp' | 'defense' | 'critChance' | 'dodge';
 export type StageStatKey = 'attack' | 'defense' | 'speed';
 
+// FIX: Exported Equipment
+export type { Equipment };
+
 export interface Pokemon {
   id: number;
   name: string;
@@ -17,7 +20,7 @@ export interface Pokemon {
   maxXp?: number;
   status?: 'normal' | 'burn' | 'poison' | 'paralyze' | 'freeze' | 'sleep';
   equipment?: Equipment[];
-  stages?: Record<StageStatKey, number>; // Strictly typed keys
+  stages?: Record<StageStatKey, number>;
   learnset?: { 
     level: number; 
     name: string; 

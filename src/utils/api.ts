@@ -1,3 +1,4 @@
+// src/utils/api.ts
 import { type Pokemon } from '../types/pokemon';
 import { type Move } from '../types/move';
 import { type Equipment } from '../types/equipment';
@@ -35,6 +36,8 @@ export const fetchMoveDetails = async (url: string): Promise<Move | null> => {
       power: data.power || 0, 
       accuracy: data.accuracy || 100,
       pp: data.pp || 15,
+      // FIX: Added required maxPp property
+      maxPp: data.pp || 15,
       statusEffect: moveStatus as "poison" | "burn" | "paralyze" | "freeze" | "stunned" | undefined,
     };
   } catch (e) {
@@ -47,11 +50,10 @@ export const getRandomPokemon = async (id: number, isPlayer: boolean = false, ta
   const response = await fetch(`${POKE_API_URL}${id}`);
   const data = await response.json();
 
-  // Normalize stats down to a 1-4 scale (Base starters are usually 45-65. 45/15 = 3, 60/15 = 4)
   const normalizeStat = (base: number) => Math.max(1, Math.round(base / 15));
 
   const rawHp = data.stats.find((s: PokeAPIStat) => s.stat.name === 'hp').base_stat;
-  const hp = normalizeStat(rawHp) * 5; // Multiplied by 5 to allow actual combat pacing
+  const hp = normalizeStat(rawHp) * 5; 
   const attack = normalizeStat(data.stats.find((s: PokeAPIStat) => s.stat.name === 'attack').base_stat);
   const defense = normalizeStat(data.stats.find((s: PokeAPIStat) => s.stat.name === 'defense').base_stat);
   const speed = normalizeStat(data.stats.find((s: PokeAPIStat) => s.stat.name === 'speed').base_stat);

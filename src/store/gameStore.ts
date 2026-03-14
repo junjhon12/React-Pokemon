@@ -12,7 +12,8 @@ export interface UserProfile {
 
 export type DungeonModifier = 'none' | 'volcanic' | 'thick-fog' | 'electric-terrain' | 'hail';
 
-interface GameState {
+// FIX: Added 'export' to the interface
+export interface GameState {
   userProfile: UserProfile | null;
   player: Pokemon | null;
   enemy: Pokemon | null;
@@ -41,7 +42,6 @@ interface GameState {
   setPendingMove: (move: Move | null) => void;
   setDungeonModifier: (mod: DungeonModifier) => void;
   
-  // NEW: Reset run to clear persistence
   resetRun: () => void;
 }
 

@@ -10,19 +10,19 @@ import { MoveReplacementOverlay } from './components/MoveReplacementOverlay';
 import './App.css';
 
 function App() {
-  // Optimization: Atomic selectors to prevent unnecessary re-renders
-  const player = useGameStore(state => state.player);
-  const enemy = useGameStore(state => state.enemy);
-  const gameLog = useGameStore(state => state.gameLog);
-  const floor = useGameStore(state => state.floor);
-  const upgrades = useGameStore(state => state.upgrades);
-  const playerAnimation = useGameStore(state => state.playerAnimation);
-  const enemyAnimation = useGameStore(state => state.enemyAnimation);
-  const isGameStarted = useGameStore(state => state.isGameStarted);
-  const highScore = useGameStore(state => state.highScore);
-  const pendingMove = useGameStore(state => state.pendingMove);
-  const dungeonModifier = useGameStore(state => state.dungeonModifier);
-  const resetRun = useGameStore(state => state.resetRun);
+  // ATOMIC SELECTORS: Component only reacts to changes in these specific fields
+  const player = useGameStore((state) => state.player);
+  const enemy = useGameStore((state) => state.enemy);
+  const gameLog = useGameStore((state) => state.gameLog);
+  const floor = useGameStore((state) => state.floor);
+  const upgrades = useGameStore((state) => state.upgrades);
+  const playerAnimation = useGameStore((state) => state.playerAnimation);
+  const enemyAnimation = useGameStore((state) => state.enemyAnimation);
+  const isGameStarted = useGameStore((state) => state.isGameStarted);
+  const highScore = useGameStore((state) => state.highScore);
+  const pendingMove = useGameStore((state) => state.pendingMove);
+  const dungeonModifier = useGameStore((state) => state.dungeonModifier);
+  const resetRun = useGameStore((state) => state.resetRun);
 
   const {
     startGame, selectStarterAndStart, handleMoveClick, handleSelectUpgrade,
@@ -60,7 +60,6 @@ function App() {
           {player && <PlayerDashboard handleMoveClick={handleMoveClick} />}
 
           <div className='contents md:flex md:flex-1 md:flex-col relative bg-[#1a1a24]'>
-            {/* Header */}
             <div className='order-1 md:order-1 h-10 md:h-12 bg-[#b31429] flex items-center px-4 md:px-6 justify-between border-b-4 border-black shrink-0'>
               <h1 className='text-white font-black text-lg md:text-xl tracking-widest uppercase'>
                 {floor % 10 === 0 ? `BOSS ${floor}` : floor % 5 === 0 ? `MINI-BOSS ${floor}` : `ROOM ${floor}`}

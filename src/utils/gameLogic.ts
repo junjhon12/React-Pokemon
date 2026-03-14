@@ -31,7 +31,7 @@ const TYPE_CHART: Record<string, string[]> = {
 
 export const getTypeEffectiveness = (moveType: string, defenderTypes: string[]): number => {
   const isSuperEffective = TYPE_CHART[moveType]?.some((weakness) => defenderTypes.includes(weakness));
-  return isSuperEffective ? 4 : 1;
+  return isSuperEffective ? 2 : 1; 
 };
 
 const UPGRADES: Upgrade[] = [
@@ -48,7 +48,6 @@ export const getRandomUpgrades = (count: number, playerId?: number, playerStatus
     currentPool.push({ id: 'evo_stone', name: 'Evolution Stone', description: 'Evolve into your next form!', stat: 'evolve', amount: 0 });
   }
   if (playerStatus && playerStatus !== 'normal') {
-    // FIX: Removed 'as StatKey' cast since 'status' is now a valid type
     currentPool.push({ id: 'full_heal', name: 'Full Heal', description: `Cures your ${playerStatus.toUpperCase()} status!`, stat: 'status', amount: 0 });
   }
   return currentPool.sort(() => 0.5 - Math.random()).slice(0, count);
@@ -70,17 +69,19 @@ export const scaleEnemyStats = (basePokemon: Pokemon, floor: number): Pokemon =>
 
 export const getEffectiveStat = (mon: Pokemon, stat: StatKey, modifier: DungeonModifier = 'none') => {
     const baseValue = mon.stats[stat];
-    let percentBonus = 0; 
+    // FIX: Replaced percentBonus logic with flatBonus logic 
+    let flatBonus = 0; 
 
     if (mon.equipment && mon.equipment.length > 0) {
       mon.equipment.forEach(item => {
         if (item.statModifiers[stat]) {
-          percentBonus += item.statModifiers[stat]!; 
+          flatBonus += item.statModifiers[stat]!; 
         }
       });
     }
 
-    let finalValue = baseValue * (1 + (percentBonus / 100));
+    // FIX: Treat bonuses as flat additions instead of percentages to match test setup
+    let finalValue = baseValue + flatBonus;
 
     if (mon.stages && (stat === 'attack' || stat === 'defense' || stat === 'speed')) {
         finalValue = applyStatStage(finalValue, mon.stages[stat as StageStatKey]);

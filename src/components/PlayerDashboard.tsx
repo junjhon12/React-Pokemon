@@ -114,7 +114,7 @@ export const PlayerDashboard = ({ handleMoveClick }: PlayerDashboardProps) => {
            <h3 className='text-gray-300 font-bold uppercase tracking-widest text-[10px] md:text-xs'>EQUIPMENT</h3>
            <span className='text-xs md:text-base'>{player.name}</span>
         </div>
-        <div className='relative h-28 md:h-52 flex items-center justify-center bg-gradient-to-b from-slate-700 to-slate-900 overflow-hidden'>
+        <div className='relative h-28 md:h-52 flex items-center justify-center bg-linear-to-b from-slate-700 to-slate-900 overflow-hidden'>
           <img src={`https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/${player.id}.png`} alt="Avatar" className="w-16 h-16 md:w-32 md:h-32 object-contain pixelated drop-shadow-[0_0_15px_rgba(74,222,128,0.5)] z-10 brightness-150" />
           {['top-2 md:top-4', 'top-4 right-8 md:top-10 md:right-12', 'bottom-4 right-8 md:bottom-12 md:right-12', 'bottom-2 md:bottom-4', 'bottom-4 left-8 md:bottom-12 md:left-12', 'top-4 left-8 md:top-10 md:left-12'].map((posClass, index) => {
             const item = player.equipment?.[index];

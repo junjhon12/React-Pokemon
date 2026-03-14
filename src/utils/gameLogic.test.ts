@@ -34,7 +34,9 @@ describe('getEffectiveStat', () => {
     stats: {
       hp: 45, maxHp: 45, attack: 49, defense: 49, speed: 45, critChance: 5, dodge: 0,
     },
-    equipment: []
+    equipment: [],
+    level: 0,
+    moves: []
   };
 
   // 2. Setup Mock Data: Fake items to equip

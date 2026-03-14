@@ -12,10 +12,6 @@ interface PokeAPIStat {
   stat: { name: string };
 }
 
-interface PokeAPIMove {
-  move: { url: string; name: string };
-}
-
 interface PokeAPIType {
   type: { name: string };
 }

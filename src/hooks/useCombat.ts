@@ -1,5 +1,4 @@
 // src/hooks/useCombat.ts
-import { useCallback } from 'react';
 import { type Pokemon } from '../types/pokemon';
 import type { Move } from '../types/move';
 import { getTypeEffectiveness, getEffectiveStat } from '../utils/gameLogic';

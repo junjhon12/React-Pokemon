@@ -1,4 +1,3 @@
-import React from 'react';
 import { PokemonCard } from './PokemonCard';
 import { type Pokemon } from '../types/pokemon';
 import { type DungeonModifier } from '../store/gameStore';

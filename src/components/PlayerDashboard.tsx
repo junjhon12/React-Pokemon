@@ -1,5 +1,5 @@
 // src/components/PlayerDashboard.tsx
-import React, { useMemo } from 'react';
+import { useMemo } from 'react';
 import { type Move } from '../types/move';
 import { getEffectiveStat } from '../utils/gameLogic';
 import { useGameStore } from '../store/gameStore';

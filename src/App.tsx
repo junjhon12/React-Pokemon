@@ -11,27 +11,11 @@ import './App.css';
 
 function App() {
   const {
-  player, enemy, gameLog, floor, upgrades,
-  playerAnimation, enemyAnimation, isGameStarted, highScore,
-  pendingMove, playerTurn,
-  dungeonModifier
-} = useGameStore();
-
-// Define a helper to get background styles based on the modifier
-const getArenaBackground = () => {
-  switch (dungeonModifier) {
-    case 'volcanic':
-      return 'bg-gradient-to-b from-orange-900/40 via-red-900/20 to-transparent';
-    case 'thick-fog':
-      return 'bg-gradient-to-b from-gray-500/40 via-slate-700/20 to-transparent backdrop-blur-[2px]';
-    case 'electric-terrain':
-      return 'bg-gradient-to-b from-yellow-600/30 via-blue-900/20 to-transparent';
-    case 'hail':
-      return 'bg-gradient-to-b from-cyan-100/20 via-blue-400/10 to-transparent';
-    default:
-      return 'bg-gradient-to-b from-blue-900/20 to-transparent';
-  }
-};
+    player, enemy, gameLog, floor, upgrades,
+    playerAnimation, enemyAnimation, isGameStarted, highScore,
+    pendingMove, playerTurn,
+    dungeonModifier, resetRun // Added dungeonModifier and resetRun
+  } = useGameStore();
 
   const {
     startGame, selectStarterAndStart, handleMoveClick, handleSelectUpgrade, setIsGameStarted,
@@ -40,6 +24,22 @@ const getArenaBackground = () => {
   } = useGameEngine();
   
   const logContainerRef = useRef<HTMLDivElement>(null);
+  
+  // NEW: Dynamic background helper based on Dungeon Modifier
+  const getArenaBackground = () => {
+    switch (dungeonModifier) {
+      case 'volcanic':
+        return 'bg-gradient-to-b from-orange-900/40 via-red-900/20 to-transparent';
+      case 'thick-fog':
+        return 'bg-gradient-to-b from-gray-500/40 via-slate-700/20 to-transparent backdrop-blur-[2px]';
+      case 'electric-terrain':
+        return 'bg-gradient-to-b from-yellow-600/30 via-blue-900/20 to-transparent';
+      case 'hail':
+        return 'bg-gradient-to-b from-cyan-100/20 via-blue-400/10 to-transparent';
+      default:
+        return 'bg-gradient-to-b from-blue-900/20 to-transparent';
+    }
+  };
   
   useEffect(() => {
     if (logContainerRef.current) {
@@ -61,11 +61,12 @@ const getArenaBackground = () => {
     currentHighScores.push(newScore);
     currentHighScores.sort((a: any, b: any) => b.floor - a.floor); 
     localStorage.setItem('rogue-high-scores', JSON.stringify(currentHighScores.slice(0, 10))); 
-    setIsGameStarted('START');
+    
+    // Instead of reload, clear persisted data smoothly
+    resetRun();
   };
 
   return (
-    // 1. CHANGE: Changed `items-center` to `items-start md:items-center` so the page can scroll natively on mobile
     <div className='min-h-screen w-full bg-black flex items-start md:items-center justify-center font-mono p-0 sm:p-2 md:p-4'>
       
       {isGameStarted === 'START' && (
@@ -101,7 +102,8 @@ const getArenaBackground = () => {
               ))}
             </div>
 
-            <div className='order-2 md:order-3 w-full min-h-[40vh] md:min-h-0 md:flex-1 relative bg-linear-to-b from-[#87ceeb] to-[#90ee90] overflow-hidden'>
+            {/* UPDATED: Dynamic background class and smooth transitions */}
+            <div className={`order-2 md:order-3 w-full min-h-[40vh] md:min-h-0 md:flex-1 relative overflow-hidden transition-colors duration-1000 ${getArenaBackground()}`}>
               
               <LootOverlay upgrades={upgrades} handleSelectUpgrade={handleSelectUpgrade} />
               {pendingMove && (

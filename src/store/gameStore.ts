@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { persist, createJSONStorage } from 'zustand/middleware';
 import type { Pokemon } from '../types/pokemon';
 import type { Upgrade } from '../types/upgrade';
 import type { Move } from '../types/move';
@@ -24,8 +25,6 @@ interface GameState {
   playerAnimation: string;
   enemyAnimation: string;
   pendingMove: Move | null;
-  
-  // NEW: Dungeon Modifier State
   dungeonModifier: DungeonModifier;
 
   setUserProfile: (profile: UserProfile | null) => void;
@@ -41,37 +40,69 @@ interface GameState {
   setHighScore: (score: number) => void;
   setPendingMove: (move: Move | null) => void;
   setDungeonModifier: (mod: DungeonModifier) => void;
+  
+  // NEW: Reset run to clear persistence
+  resetRun: () => void;
 }
 
-export const useGameStore = create<GameState>((set) => ({
-  userProfile: null,
-  player: null,
-  enemy: null,
-  floor: 1,
-  highScore: parseInt(localStorage.getItem('rogue-score') || '0'),
-  upgrades: [],
-  gameLog: [],
-  isGameStarted: 'START',
-  playerTurn: true,
-  playerAnimation: '',
-  enemyAnimation: '',
-  pendingMove: null,
-  dungeonModifier: 'none', // Initial state
+export const useGameStore = create<GameState>()(
+  persist(
+    (set) => ({
+      userProfile: null,
+      player: null,
+      enemy: null,
+      floor: 1,
+      highScore: parseInt(localStorage.getItem('rogue-score') || '0'),
+      upgrades: [],
+      gameLog: [],
+      isGameStarted: 'START',
+      playerTurn: true,
+      playerAnimation: '',
+      enemyAnimation: '',
+      pendingMove: null,
+      dungeonModifier: 'none',
 
-  setUserProfile: (userProfile) => set({ userProfile }),
-  setPlayer: (player) => set({ player }),
-  setEnemy: (enemy) => set({ enemy }),
-  setFloor: (floor) => set({ floor }),
-  setUpgrades: (upgrades) => set({ upgrades }),
-  addGameLog: (messages) => set((state) => ({ gameLog: [...state.gameLog, ...messages] })),
-  setIsGameStarted: (isGameStarted) => set({ isGameStarted }),
-  setPlayerTurn: (playerTurn) => set({ playerTurn }),
-  setPlayerAnimation: (playerAnimation) => set({ playerAnimation }),
-  setEnemyAnimation: (enemyAnimation) => set({ enemyAnimation }),
-  setHighScore: (score) => {
-    localStorage.setItem('rogue-score', score.toString());
-    set({ highScore: score });
-  },
-  setPendingMove: (pendingMove) => set({ pendingMove }),
-  setDungeonModifier: (dungeonModifier) => set({ dungeonModifier })
-}));
+      setUserProfile: (userProfile) => set({ userProfile }),
+      setPlayer: (player) => set({ player }),
+      setEnemy: (enemy) => set({ enemy }),
+      setFloor: (floor) => set({ floor }),
+      setUpgrades: (upgrades) => set({ upgrades }),
+      addGameLog: (messages) => set((state) => ({ gameLog: [...state.gameLog, ...messages] })),
+      setIsGameStarted: (isGameStarted) => set({ isGameStarted }),
+      setPlayerTurn: (playerTurn) => set({ playerTurn }),
+      setPlayerAnimation: (playerAnimation) => set({ playerAnimation }),
+      setEnemyAnimation: (enemyAnimation) => set({ enemyAnimation }),
+      setHighScore: (score) => {
+        localStorage.setItem('rogue-score', score.toString());
+        set({ highScore: score });
+      },
+      setPendingMove: (pendingMove) => set({ pendingMove }),
+      setDungeonModifier: (dungeonModifier) => set({ dungeonModifier }),
+      
+      resetRun: () => set({
+        player: null,
+        enemy: null,
+        floor: 1,
+        upgrades: [],
+        gameLog: [],
+        isGameStarted: 'START',
+        playerTurn: true,
+        pendingMove: null,
+        dungeonModifier: 'none'
+      }),
+    }),
+    {
+      name: 'pokemon-rogue-save',
+      storage: createJSONStorage(() => localStorage),
+      partialize: (state) => ({ 
+        player: state.player, 
+        enemy: state.enemy, 
+        floor: state.floor, 
+        gameLog: state.gameLog, 
+        isGameStarted: state.isGameStarted,
+        dungeonModifier: state.dungeonModifier,
+        upgrades: state.upgrades
+      }),
+    }
+  )
+);

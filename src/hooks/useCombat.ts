@@ -37,7 +37,6 @@ export const useCombat = (onEnemyDefeat: (enemy: Pokemon, player: Pokemon) => Pr
     });
 
     if (logMsgs.length > 0) {
-      // FIX: Typed 's' as GameState
       patchState((s: GameState) => ({ gameLog: [...s.gameLog, ...logMsgs] }));
     }
     return { ...mon, stages: newStages };
@@ -100,7 +99,8 @@ export const useCombat = (onEnemyDefeat: (enemy: Pokemon, player: Pokemon) => Pr
     const baseDmg = (getEffectiveStat(currentEnemy, 'attack', dungeonModifier) * move.power) / 50;
     const mitigation = 10 / (10 + getEffectiveStat(currentPlayer, 'defense', dungeonModifier));
     
-    const finalDamage = Math.max(1, Math.floor(baseDmg * effectiveness * mitigation * (isCrit ? 1.5 : 1)));
+    // FIX: Added + 2 to base formula so enemies hit harder too (prevents player from just face-tanking early game)
+    const finalDamage = Math.max(1, Math.floor((baseDmg * effectiveness * mitigation * (isCrit ? 1.5 : 1)) + 2));
     const remainingHp = Math.max(currentPlayer.stats.hp - finalDamage, 0);
 
     patchState((s: GameState) => ({ 
@@ -169,7 +169,8 @@ export const useCombat = (onEnemyDefeat: (enemy: Pokemon, player: Pokemon) => Pr
     const baseDmg = (getEffectiveStat(player, 'attack', dungeonModifier) * move.power) / 50;
     const mitigation = 10 / (10 + getEffectiveStat(enemy, 'defense', dungeonModifier));
     
-    const finalDamage = Math.max(1, Math.floor(baseDmg * effectiveness * mitigation * (isCrit ? 1.5 : 1)));
+    // FIX: Added + 2 to the player's damage formula here so they hit harder
+    const finalDamage = Math.max(1, Math.floor((baseDmg * effectiveness * mitigation * (isCrit ? 1.5 : 1)) + 2));
     const remainingEnemyHp = Math.max(enemy.stats.hp - finalDamage, 0);
 
     patchState((s: GameState) => ({ 

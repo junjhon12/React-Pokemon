@@ -1,24 +1,34 @@
+// src/hooks/useMoveAnalysis.ts
 import { useGameStore } from '../store/gameStore';
+import { getTypeEffectiveness } from '../utils/gameLogic';
 import { type Move } from '../types/move';
 
-// Helper for type effectiveness (simplified example)
-const getMoveMultiplier = (moveType: string, defenderTypes: string[]) => {
-  // Logic from type chart...
-  return 1; 
-};
-
 export const useMoveAnalysis = () => {
-  const enemy = useGameStore(state => state.enemy);
+  const enemy = useGameStore((state) => state.enemy);
 
-  const getEffectivenessColor = (move: Move) => {
-    if (!enemy) return '';
-    const multiplier = getMoveMultiplier(move.type, enemy.types);
+  /**
+   * Returns a Tailwind CSS class string based on the move's effectiveness
+   * against the current enemy.
+   */
+  const getMoveEffectivenessClass = (move: Move) => {
+    if (!enemy) return 'border-white bg-gray-800';
 
-    if (multiplier > 1) return 'shadow-[0_0_10px_rgba(34,197,94,0.6)] border-green-500 bg-green-900/20'; 
-    if (multiplier < 1 && multiplier > 0) return 'border-red-900/50 bg-red-900/10 opacity-80'; 
-    if (multiplier === 0) return 'grayscale opacity-50 border-gray-900'; 
-    return ''; 
+    const effectiveness = getTypeEffectiveness(move.type, enemy.types);
+
+    // Super Effective (Glow Green)
+    if (effectiveness > 1) {
+      return 'border-green-400 bg-green-900/40 shadow-[0_0_15px_rgba(74,222,128,0.4)]';
+    }
+    
+    // Resisted/Immune (Dim and Grayish) - Note: Current gameLogic only returns 4 or 1
+    // but this prepares us for the Advanced Type Chart (Item 3).
+    if (effectiveness < 1) {
+      return 'border-gray-600 bg-gray-900/60 opacity-60';
+    }
+
+    // Neutral (Standard)
+    return 'border-white bg-gray-800';
   };
 
-  return { getEffectivenessColor };
+  return { getMoveEffectivenessClass };
 };

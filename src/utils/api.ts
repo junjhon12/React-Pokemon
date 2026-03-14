@@ -1,4 +1,3 @@
-// src/utils/api.ts
 import { type Pokemon } from '../types/pokemon';
 import { type Move } from '../types/move';
 import { type Equipment } from '../types/equipment';
@@ -52,7 +51,6 @@ export const fetchMoveDetails = async (url: string): Promise<Move | null> => {
       power: data.power || 0, 
       accuracy: data.accuracy || 100,
       pp: data.pp || 15,
-      // FIX: Added required maxPp property
       maxPp: data.pp || 15,
       statusEffect: moveStatus as "poison" | "burn" | "paralyze" | "freeze" | "stunned" | undefined,
     };
@@ -66,7 +64,8 @@ export const getRandomPokemon = async (id: number, isPlayer: boolean = false, ta
   const response = await fetch(`${POKE_API_URL}${id}`);
   const data = await response.json();
 
-  const normalizeStat = (base: number) => Math.max(1, Math.round(base / 15));
+  // FIX: Changed divisor from 15 to 10 for wider stat variation
+  const normalizeStat = (base: number) => Math.max(1, Math.round(base / 10));
 
   const rawHp = data.stats.find((s: PokeAPIStat) => s.stat.name === 'hp').base_stat;
   const hp = normalizeStat(rawHp) * 5; 
@@ -74,7 +73,6 @@ export const getRandomPokemon = async (id: number, isPlayer: boolean = false, ta
   const defense = normalizeStat(data.stats.find((s: PokeAPIStat) => s.stat.name === 'defense').base_stat);
   const speed = normalizeStat(data.stats.find((s: PokeAPIStat) => s.stat.name === 'speed').base_stat);
 
-  // FIX: Explicitly typed mapping to remove 'any'
   const levelUpMoves = data.moves.map((m: PokeAPIMoveEntry) => {
     const levelDetail = m.version_group_details.find((v: PokeAPIVersionGroupDetail) => v.move_learn_method.name === 'level-up');
     if (levelDetail) {
@@ -83,7 +81,6 @@ export const getRandomPokemon = async (id: number, isPlayer: boolean = false, ta
     return null;
   }).filter((m: LearnsetMove | null): m is LearnsetMove => m !== null);
 
-  // FIX: Explicitly typed map structure
   const uniqueMoves = new Map<string, LearnsetMove>();
   levelUpMoves.forEach((m: LearnsetMove) => {
     const existing = uniqueMoves.get(m.name);

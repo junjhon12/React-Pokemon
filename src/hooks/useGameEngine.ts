@@ -36,24 +36,25 @@ export const useGameEngine = () => {
         setDungeonModifier('none'); // Clear it when moving to a normal floor
     }
 
+    // FIX: Expanded early game array to 16 Pokemon, including Ground, Rock, and Water types
+    const earlyGameIds = [10, 13, 16, 19, 21, 27, 29, 32, 37, 41, 43, 46, 50, 60, 69, 74];
+
     let randomId;
     if (bossEnemy) randomId = legendaryPokemonIds[Math.floor(Math.random() * legendaryPokemonIds.length)];
     else if (miniBossEnemy) randomId = pseudoLegendaryIds[Math.floor(Math.random() * pseudoLegendaryIds.length)];
-    else if (targetFloor <= 3) randomId = [10, 13, 16, 19, 21, 29, 32, 41, 43, 46, 69][Math.floor(Math.random() * 11)];
+    else if (targetFloor <= 3) randomId = earlyGameIds[Math.floor(Math.random() * earlyGameIds.length)];
     else do { randomId = Math.floor(Math.random() * 151) + 1; } while (legendaryPokemonIds.includes(randomId) || pseudoLegendaryIds.includes(randomId));
 
     const newEnemy = await getRandomPokemon(randomId, false, targetFloor);
     const scaledEnemy = scaleEnemyStats(newEnemy, targetFloor);
 
     if (bossEnemy) {
-      // Bosses get 250% HP and 30% higher core stats
       scaledEnemy.stats.maxHp = Math.floor(scaledEnemy.stats.maxHp * 2.5); 
       scaledEnemy.stats.hp = scaledEnemy.stats.maxHp;
       scaledEnemy.stats.attack = Math.floor(scaledEnemy.stats.attack * 1.3); 
       scaledEnemy.stats.defense = Math.floor(scaledEnemy.stats.defense * 1.3); 
       scaledEnemy.stats.speed = Math.floor(scaledEnemy.stats.speed * 1.2);
     } else if (miniBossEnemy) {
-      // Mini-Bosses get 150% HP and 15% higher core stats
       scaledEnemy.stats.maxHp = Math.floor(scaledEnemy.stats.maxHp * 1.5); 
       scaledEnemy.stats.hp = scaledEnemy.stats.maxHp;
       scaledEnemy.stats.attack = Math.floor(scaledEnemy.stats.attack * 1.15); 
@@ -83,7 +84,9 @@ export const useGameEngine = () => {
     setGameLog(['Welcome to the Dungeon!', 'Battle Start!']);
     setUpgrades([]);
 
-    const initialEnemyId = [10, 13, 16, 19, 21, 29, 32, 41, 43, 46, 69][Math.floor(Math.random() * 11)];
+    // FIX: Match the initial enemy array with the new expanded earlyGameIds
+    const earlyGameIds = [10, 13, 16, 19, 21, 27, 29, 32, 37, 41, 43, 46, 50, 60, 69, 74];
+    const initialEnemyId = earlyGameIds[Math.floor(Math.random() * earlyGameIds.length)];
     const [p1, p2] = await Promise.all([getRandomPokemon(starterId, true, 1), getRandomPokemon(initialEnemyId, false, 1)]);
 
     const playerMon = { ...p1, isPlayer: true };

@@ -1,3 +1,4 @@
+// src/hooks/useRewards.ts
 import { type Pokemon, type StatKey } from '../types/pokemon';
 import type { Upgrade } from '../types/upgrade';
 import type { Move } from '../types/move';
@@ -16,7 +17,6 @@ export const applyPPScale = (move: Move): Move => {
   return move;
 };
 
-// We pass `onNextFloor` in as a prop so this hook knows how to advance the game
 export const useRewards = (onNextFloor: () => void) => {
   const { floor } = useGameStore();
 
@@ -134,7 +134,8 @@ export const useRewards = (onNextFloor: () => void) => {
     const baseLoot = getRandomUpgrades(2, currentPlayer.id, newPlayer.status);
     if (floor % 1 === 0 && (currentPlayer.equipment?.length || 0) < 6) { 
       const randomItemName = ITEM_POOL[Math.floor(Math.random() * ITEM_POOL.length)];
-      let equipment = await fetchEquipmentFromPokeAPI(randomItemName) || {
+      // FIX: Changed 'let equipment' to 'const equipment'
+      const equipment = await fetchEquipmentFromPokeAPI(randomItemName) || {
           id: `local-${randomItemName}`, name: randomItemName.replace('-', ' ').toUpperCase(),
           description: 'A powerful held item generated locally.',
           spriteUrl: 'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/items/master-ball.png',
@@ -152,7 +153,8 @@ export const useRewards = (onNextFloor: () => void) => {
     const player = useGameStore.getState().player;
     if (!player) return;
 
-    if (upgrade.stat === ('status' as any)) {
+    // FIX: Safely checks for 'status' without 'any' type cast
+    if (upgrade.stat === 'status') {
       setPlayer({ ...player, status: 'normal' });
       setGameLog((prev: string[]) => [...prev, `${player.name} used a Full Heal and cured its status!`]);
     } else if (upgrade.stat === 'equipment' && upgrade.equipment) {

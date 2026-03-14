@@ -17,6 +17,22 @@ interface PokeAPIType {
   type: { name: string };
 }
 
+interface PokeAPIVersionGroupDetail {
+  move_learn_method: { name: string };
+  level_learned_at: number;
+}
+
+interface PokeAPIMoveEntry {
+  move: { name: string; url: string };
+  version_group_details: PokeAPIVersionGroupDetail[];
+}
+
+interface LearnsetMove {
+  level: number;
+  name: string;
+  url: string;
+}
+
 export const fetchMoveDetails = async (url: string): Promise<Move | null> => {
   try {
     const response = await fetch(url);
@@ -58,35 +74,38 @@ export const getRandomPokemon = async (id: number, isPlayer: boolean = false, ta
   const defense = normalizeStat(data.stats.find((s: PokeAPIStat) => s.stat.name === 'defense').base_stat);
   const speed = normalizeStat(data.stats.find((s: PokeAPIStat) => s.stat.name === 'speed').base_stat);
 
-  const levelUpMoves = data.moves.map((m: any) => {
-    const levelDetail = m.version_group_details.find((v: any) => v.move_learn_method.name === 'level-up');
+  // FIX: Explicitly typed mapping to remove 'any'
+  const levelUpMoves = data.moves.map((m: PokeAPIMoveEntry) => {
+    const levelDetail = m.version_group_details.find((v: PokeAPIVersionGroupDetail) => v.move_learn_method.name === 'level-up');
     if (levelDetail) {
       return { level: levelDetail.level_learned_at, name: m.move.name, url: m.move.url };
     }
     return null;
-  }).filter(Boolean);
+  }).filter((m: LearnsetMove | null): m is LearnsetMove => m !== null);
 
-  const uniqueMoves = new Map();
-  levelUpMoves.forEach((m: any) => {
-    if (!uniqueMoves.has(m.name) || uniqueMoves.get(m.name).level > m.level) {
+  // FIX: Explicitly typed map structure
+  const uniqueMoves = new Map<string, LearnsetMove>();
+  levelUpMoves.forEach((m: LearnsetMove) => {
+    const existing = uniqueMoves.get(m.name);
+    if (!existing || existing.level > m.level) {
       uniqueMoves.set(m.name, m);
     }
   });
   
-  const learnset = Array.from(uniqueMoves.values()).sort((a: any, b: any) => a.level - b.level);
+  const learnset = Array.from(uniqueMoves.values()).sort((a: LearnsetMove, b: LearnsetMove) => a.level - b.level);
 
   let moveUrlsToFetch: string[] = [];
 
   if (isPlayer) {
-    moveUrlsToFetch = learnset.slice(0, 3).map((m: any) => m.url);
+    moveUrlsToFetch = learnset.slice(0, 3).map((m: LearnsetMove) => m.url);
   } else {
-    const availableMoves = learnset.filter((m: any) => m.level <= targetLevel);
+    const availableMoves = learnset.filter((m: LearnsetMove) => m.level <= targetLevel);
     const recentMoves = availableMoves.slice(-4);
     
     if (recentMoves.length === 0 && learnset.length > 0) {
        recentMoves.push(learnset[0]);
     }
-    moveUrlsToFetch = recentMoves.map((m: any) => m.url);
+    moveUrlsToFetch = recentMoves.map((m: LearnsetMove) => m.url);
   }
 
   const movePromises = moveUrlsToFetch.map(url => fetchMoveDetails(url));

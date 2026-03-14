@@ -54,9 +54,9 @@ export const StartScreen = ({ highScore, startGame }: StartScreenProps) => {
     fetchLeaderboard();
   }, []);
 
-  const handleLoginSuccess = (credentialResponse: any) => {
+  const handleLoginSuccess = (credentialResponse: { credential?: string }) => {
     if (credentialResponse.credential) {
-      const decoded: any = jwtDecode(credentialResponse.credential);
+      const decoded = jwtDecode<{ name: string; email: string; picture: string }>(credentialResponse.credential);
       const googleName = decoded.name.replace(/\s+/g, '').slice(0, 15);
       
       setUserProfile({

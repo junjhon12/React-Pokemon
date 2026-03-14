@@ -1,7 +1,8 @@
-import type { Pokemon, StatKey } from '../types/pokemon';
+// src/utils/gameLogic.ts
+import type { Pokemon, StatKey, StageStatKey } from '../types/pokemon';
 import { type Upgrade } from '../types/upgrade';
 import type { DungeonModifier } from '../store/gameStore';
-import { applyStatStage } from './statCalculator'; // Import the new utility
+import { applyStatStage } from './statCalculator'; 
 
 export const EVOLUTION_MAP: Record<number, number> = {
   1: 2, 2: 3, 4: 5, 5: 6, 7: 8, 8: 9, 10: 11, 11: 12, 13: 14, 14: 15, 16: 17, 17: 18, 25: 26,           
@@ -47,7 +48,8 @@ export const getRandomUpgrades = (count: number, playerId?: number, playerStatus
     currentPool.push({ id: 'evo_stone', name: 'Evolution Stone', description: 'Evolve into your next form!', stat: 'evolve', amount: 0 });
   }
   if (playerStatus && playerStatus !== 'normal') {
-    currentPool.push({ id: 'full_heal', name: 'Full Heal', description: `Cures your ${playerStatus.toUpperCase()} status!`, stat: 'status' as any, amount: 0 });
+    // FIX: Removed 'as StatKey' cast since 'status' is now a valid type
+    currentPool.push({ id: 'full_heal', name: 'Full Heal', description: `Cures your ${playerStatus.toUpperCase()} status!`, stat: 'status', amount: 0 });
   }
   return currentPool.sort(() => 0.5 - Math.random()).slice(0, count);
 };
@@ -66,9 +68,8 @@ export const scaleEnemyStats = (basePokemon: Pokemon, floor: number): Pokemon =>
   return { ...basePokemon, level: floor, stats: newStats };
 };
 
-// UPDATED: Now includes Stat Stage calculations
 export const getEffectiveStat = (mon: Pokemon, stat: StatKey, modifier: DungeonModifier = 'none') => {
-    let baseValue = mon.stats[stat];
+    const baseValue = mon.stats[stat];
     let percentBonus = 0; 
 
     if (mon.equipment && mon.equipment.length > 0) {
@@ -81,12 +82,10 @@ export const getEffectiveStat = (mon: Pokemon, stat: StatKey, modifier: DungeonM
 
     let finalValue = baseValue * (1 + (percentBonus / 100));
 
-    // Apply Stat Stages (Buffs/Debuffs)
     if (mon.stages && (stat === 'attack' || stat === 'defense' || stat === 'speed')) {
-        finalValue = applyStatStage(finalValue, (mon.stages as any)[stat]);
+        finalValue = applyStatStage(finalValue, mon.stages[stat as StageStatKey]);
     }
 
-    // Apply Dungeon Weather Modifiers
     if (modifier === 'thick-fog' && stat === 'dodge') finalValue += 20; 
     
     return finalValue;

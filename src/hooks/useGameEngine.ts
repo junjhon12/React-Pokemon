@@ -1,18 +1,20 @@
 import { getRandomPokemon } from '../utils/api'; 
 import { scaleEnemyStats } from '../utils/gameLogic';
-import { useGameStore, type DungeonModifier } from '../store/gameStore';
+import { useGameStore, type DungeonModifier, type GameState } from '../store/gameStore';
 import { useRewards, applyPPScale } from './useRewards';
 import { useCombat } from './useCombat';
+import { type Pokemon } from '../types/pokemon';
+import { type Upgrade } from '../types/upgrade';
 
 export const useGameEngine = () => {
   const { player, enemy, floor } = useGameStore();
 
-  const setPlayer = (val: any) => useGameStore.setState(typeof val === 'function' ? (s) => ({ player: val(s.player) }) : { player: val });
-  const setEnemy = (val: any) => useGameStore.setState(typeof val === 'function' ? (s) => ({ enemy: val(s.enemy) }) : { enemy: val });
-  const setPlayerTurn = (val: any) => useGameStore.setState(typeof val === 'function' ? (s) => ({ playerTurn: val(s.playerTurn) }) : { playerTurn: val });
-  const setGameLog = (val: any) => useGameStore.setState(typeof val === 'function' ? (s) => ({ gameLog: val(s.gameLog) }) : { gameLog: val });
-  const setFloor = (val: any) => useGameStore.setState(typeof val === 'function' ? (s) => ({ floor: val(s.floor) }) : { floor: val });
-  const setUpgrades = (val: any) => useGameStore.setState(typeof val === 'function' ? (s) => ({ upgrades: val(s.upgrades) }) : { upgrades: val });
+  const setPlayer = (val: Pokemon | null | ((p: Pokemon | null) => Pokemon | null)) => useGameStore.setState(typeof val === 'function' ? (s: GameState) => ({ player: val(s.player) }) : { player: val });
+  const setEnemy = (val: Pokemon | null | ((e: Pokemon | null) => Pokemon | null)) => useGameStore.setState(typeof val === 'function' ? (s: GameState) => ({ enemy: val(s.enemy) }) : { enemy: val });
+  const setPlayerTurn = (val: boolean | ((t: boolean) => boolean)) => useGameStore.setState(typeof val === 'function' ? (s: GameState) => ({ playerTurn: val(s.playerTurn) }) : { playerTurn: val });
+  const setGameLog = (val: string[] | ((l: string[]) => string[])) => useGameStore.setState(typeof val === 'function' ? (s: GameState) => ({ gameLog: val(s.gameLog) }) : { gameLog: val });
+  const setFloor = (val: number | ((f: number) => number)) => useGameStore.setState(typeof val === 'function' ? (s: GameState) => ({ floor: val(s.floor) }) : { floor: val });
+  const setUpgrades = (val: Upgrade[] | ((u: Upgrade[]) => Upgrade[])) => useGameStore.setState(typeof val === 'function' ? (s: GameState) => ({ upgrades: val(s.upgrades) }) : { upgrades: val });
   const setIsGameStarted = (val: 'START' | 'SELECT' | 'BATTLE') => useGameStore.setState({ isGameStarted: val });
   const setDungeonModifier = (mod: DungeonModifier) => useGameStore.setState({ dungeonModifier: mod });
 

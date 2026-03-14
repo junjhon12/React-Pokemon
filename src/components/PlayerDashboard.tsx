@@ -19,15 +19,15 @@ export const PlayerDashboard = ({ handleMoveClick }: PlayerDashboardProps) => {
 
   // Optimization: Memoize stat values to prevent recalculation during animations
   const memoizedStats = useMemo(() => {
-    if (!player) return null;
-    return {
-      attack: getEffectiveStat(player, 'attack'),
-      defense: getEffectiveStat(player, 'defense'),
-      speed: getEffectiveStat(player, 'speed'),
-      crit: getEffectiveStat(player, 'critChance'),
-      dodge: getEffectiveStat(player, 'dodge')
-    };
-  }, [player?.stats, player?.equipment, player?.stages]);
+      if (!player) return null;
+      return {
+        attack: getEffectiveStat(player, 'attack'),
+        defense: getEffectiveStat(player, 'defense'),
+        speed: getEffectiveStat(player, 'speed'),
+        crit: getEffectiveStat(player, 'critChance'),
+        dodge: getEffectiveStat(player, 'dodge')
+      };
+    }, [player]);
 
   if (!player || !enemy) return null;
 

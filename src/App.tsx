@@ -9,8 +9,13 @@ import { useGameStore } from './store/gameStore';
 import { MoveReplacementOverlay } from './components/MoveReplacementOverlay';
 import './App.css';
 
+interface HighScoreEntry {
+  pokemon: string;
+  floor: number;
+  date: string;
+}
+
 function App() {
-  // ATOMIC SELECTORS: Component only reacts to changes in these specific fields
   const player = useGameStore((state) => state.player);
   const enemy = useGameStore((state) => state.enemy);
   const gameLog = useGameStore((state) => state.gameLog);
@@ -31,14 +36,14 @@ function App() {
 
   const handleFinishRun = () => {
     if (!player) return;
-    const currentHighScores = JSON.parse(localStorage.getItem('rogue-high-scores') || '[]');
-    const newScore = {
+    const currentHighScores: HighScoreEntry[] = JSON.parse(localStorage.getItem('rogue-high-scores') || '[]');
+    const newScore: HighScoreEntry = {
       pokemon: player.name.charAt(0).toUpperCase() + player.name.slice(1),
       floor: floor,
       date: new Date().toLocaleDateString()
     };
     currentHighScores.push(newScore);
-    currentHighScores.sort((a: any, b: any) => b.floor - a.floor); 
+    currentHighScores.sort((a: HighScoreEntry, b: HighScoreEntry) => b.floor - a.floor); 
     localStorage.setItem('rogue-high-scores', JSON.stringify(currentHighScores.slice(0, 10))); 
     resetRun(); 
   };

@@ -30,7 +30,6 @@ export const BattleArena = ({
       case 'hail':
         return 'bg-gradient-to-b from-cyan-100/20 via-blue-400/10 to-transparent';
       default:
-        // Default classic Pokémon background
         return 'bg-gradient-to-b from-[#87ceeb] to-[#90ee90]';
     }
   };

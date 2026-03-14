@@ -10,11 +10,19 @@ import { MoveReplacementOverlay } from './components/MoveReplacementOverlay';
 import './App.css';
 
 function App() {
-  const {
-    player, enemy, gameLog, floor, upgrades,
-    playerAnimation, enemyAnimation, isGameStarted, highScore,
-    pendingMove, dungeonModifier, resetRun
-  } = useGameStore();
+  // Optimization: Atomic selectors to prevent unnecessary re-renders
+  const player = useGameStore(state => state.player);
+  const enemy = useGameStore(state => state.enemy);
+  const gameLog = useGameStore(state => state.gameLog);
+  const floor = useGameStore(state => state.floor);
+  const upgrades = useGameStore(state => state.upgrades);
+  const playerAnimation = useGameStore(state => state.playerAnimation);
+  const enemyAnimation = useGameStore(state => state.enemyAnimation);
+  const isGameStarted = useGameStore(state => state.isGameStarted);
+  const highScore = useGameStore(state => state.highScore);
+  const pendingMove = useGameStore(state => state.pendingMove);
+  const dungeonModifier = useGameStore(state => state.dungeonModifier);
+  const resetRun = useGameStore(state => state.resetRun);
 
   const {
     startGame, selectStarterAndStart, handleMoveClick, handleSelectUpgrade,
@@ -30,7 +38,7 @@ function App() {
       date: new Date().toLocaleDateString()
     };
     currentHighScores.push(newScore);
-    currentHighScores.sort((a, b) => b.floor - a.floor); 
+    currentHighScores.sort((a: any, b: any) => b.floor - a.floor); 
     localStorage.setItem('rogue-high-scores', JSON.stringify(currentHighScores.slice(0, 10))); 
     resetRun(); 
   };
@@ -62,7 +70,6 @@ function App() {
 
             <CombatLog gameLog={gameLog} />
 
-            {/* FIXED: The container below now has h-[50vh] to ensure it doesn't collapse on mobile */}
             <div className='order-2 md:order-3 w-full h-[50vh] md:h-auto md:flex-1 relative bg-[#1a1a24] overflow-hidden'>
               <LootOverlay upgrades={upgrades} handleSelectUpgrade={handleSelectUpgrade} />
               

@@ -1,6 +1,7 @@
 import type { Pokemon, StatKey } from '../types/pokemon';
 import { type Upgrade } from '../types/upgrade';
 import type { DungeonModifier } from '../store/gameStore';
+import { applyStatStage } from './statCalculator'; // Import the new utility
 
 export const EVOLUTION_MAP: Record<number, number> = {
   1: 2, 2: 3, 4: 5, 5: 6, 7: 8, 8: 9, 10: 11, 11: 12, 13: 14, 14: 15, 16: 17, 17: 18, 25: 26,           
@@ -65,10 +66,10 @@ export const scaleEnemyStats = (basePokemon: Pokemon, floor: number): Pokemon =>
   return { ...basePokemon, level: floor, stats: newStats };
 };
 
-// NEW: Percentage-based scaling and Modifier injection
+// UPDATED: Now includes Stat Stage calculations
 export const getEffectiveStat = (mon: Pokemon, stat: StatKey, modifier: DungeonModifier = 'none') => {
     let baseValue = mon.stats[stat];
-    let percentBonus = 0; // Treated as a percentage (e.g., 15 = +15%)
+    let percentBonus = 0; 
 
     if (mon.equipment && mon.equipment.length > 0) {
       mon.equipment.forEach(item => {
@@ -80,8 +81,13 @@ export const getEffectiveStat = (mon: Pokemon, stat: StatKey, modifier: DungeonM
 
     let finalValue = baseValue * (1 + (percentBonus / 100));
 
+    // Apply Stat Stages (Buffs/Debuffs)
+    if (mon.stages && (stat === 'attack' || stat === 'defense' || stat === 'speed')) {
+        finalValue = applyStatStage(finalValue, (mon.stages as any)[stat]);
+    }
+
     // Apply Dungeon Weather Modifiers
-    if (modifier === 'thick-fog' && stat === 'dodge') finalValue += 20; // +20% flat dodge chance
+    if (modifier === 'thick-fog' && stat === 'dodge') finalValue += 20; 
     
     return finalValue;
 };

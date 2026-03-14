@@ -31,7 +31,7 @@ const TYPE_CHART: Record<string, string[]> = {
 
 export const getTypeEffectiveness = (moveType: string, defenderTypes: string[]): number => {
   const isSuperEffective = TYPE_CHART[moveType]?.some((weakness) => defenderTypes.includes(weakness));
-  return isSuperEffective ? 2 : 1; 
+  return isSuperEffective ? 2 : 1;
 };
 
 const UPGRADES: Upgrade[] = [
@@ -54,22 +54,23 @@ export const getRandomUpgrades = (count: number, playerId?: number, playerStatus
 };
 
 export const scaleEnemyStats = (basePokemon: Pokemon, floor: number): Pokemon => {
-  const levelUps = floor > 1 ? floor - 1 : 0;
-  const newStats = { ...basePokemon.stats };
-  const upgradeableStats: StatKey[] = ['maxHp', 'attack', 'defense', 'speed'];
+  // 10% compounding stat growth per floor
+  const multiplier = Math.pow(1.10, floor > 1 ? floor - 1 : 0);
   
-  for (let i = 0; i < levelUps; i++) {
-    const randomStat = upgradeableStats[Math.floor(Math.random() * upgradeableStats.length)];
-    const increaseAmount = Math.floor(Math.random() * 2) + 1; 
-    newStats[randomStat] += randomStat === 'maxHp' ? increaseAmount * 5 : increaseAmount;
-  }
+  const newStats = { ...basePokemon.stats };
+  
+  // Apply the multiplier to all core stats
+  newStats.maxHp = Math.max(1, Math.floor(newStats.maxHp * multiplier));
   newStats.hp = newStats.maxHp;
+  newStats.attack = Math.max(1, Math.floor(newStats.attack * multiplier));
+  newStats.defense = Math.max(1, Math.floor(newStats.defense * multiplier));
+  newStats.speed = Math.max(1, Math.floor(newStats.speed * multiplier));
+  
   return { ...basePokemon, level: floor, stats: newStats };
 };
 
 export const getEffectiveStat = (mon: Pokemon, stat: StatKey, modifier: DungeonModifier = 'none') => {
     const baseValue = mon.stats[stat];
-    // FIX: Replaced percentBonus logic with flatBonus logic 
     let flatBonus = 0; 
 
     if (mon.equipment && mon.equipment.length > 0) {
@@ -80,7 +81,6 @@ export const getEffectiveStat = (mon: Pokemon, stat: StatKey, modifier: DungeonM
       });
     }
 
-    // FIX: Treat bonuses as flat additions instead of percentages to match test setup
     let finalValue = baseValue + flatBonus;
 
     if (mon.stages && (stat === 'attack' || stat === 'defense' || stat === 'speed')) {

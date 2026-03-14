@@ -1,3 +1,4 @@
+// src/hooks/useGameEngine.ts
 import { getRandomPokemon } from '../utils/api'; 
 import { scaleEnemyStats } from '../utils/gameLogic';
 import { useGameStore, type DungeonModifier, type GameState } from '../store/gameStore';
@@ -25,7 +26,7 @@ export const useGameEngine = () => {
     const legendaryPokemonIds = [144, 145, 146, 150, 151]; 
     const pseudoLegendaryIds = [65, 94, 115, 130, 143, 149]; 
 
-    // NEW: Roll Dungeon Modifiers
+    // Roll Dungeon Modifiers
     if (targetFloor > 1 && targetFloor % 5 === 0) {
         const modifiers: DungeonModifier[] = ['volcanic', 'thick-fog', 'electric-terrain', 'hail'];
         const rolledMod = modifiers[Math.floor(Math.random() * modifiers.length)];
@@ -45,11 +46,19 @@ export const useGameEngine = () => {
     const scaledEnemy = scaleEnemyStats(newEnemy, targetFloor);
 
     if (bossEnemy) {
-      scaledEnemy.stats.maxHp += 20; scaledEnemy.stats.hp = scaledEnemy.stats.maxHp;
-      scaledEnemy.stats.attack += 3; scaledEnemy.stats.defense += 2; scaledEnemy.stats.speed += 2;
+      // Bosses get 250% HP and 30% higher core stats
+      scaledEnemy.stats.maxHp = Math.floor(scaledEnemy.stats.maxHp * 2.5); 
+      scaledEnemy.stats.hp = scaledEnemy.stats.maxHp;
+      scaledEnemy.stats.attack = Math.floor(scaledEnemy.stats.attack * 1.3); 
+      scaledEnemy.stats.defense = Math.floor(scaledEnemy.stats.defense * 1.3); 
+      scaledEnemy.stats.speed = Math.floor(scaledEnemy.stats.speed * 1.2);
     } else if (miniBossEnemy) {
-      scaledEnemy.stats.maxHp += 10; scaledEnemy.stats.hp = scaledEnemy.stats.maxHp;
-      scaledEnemy.stats.attack += 1; scaledEnemy.stats.defense += 1; scaledEnemy.stats.speed += 1;
+      // Mini-Bosses get 150% HP and 15% higher core stats
+      scaledEnemy.stats.maxHp = Math.floor(scaledEnemy.stats.maxHp * 1.5); 
+      scaledEnemy.stats.hp = scaledEnemy.stats.maxHp;
+      scaledEnemy.stats.attack = Math.floor(scaledEnemy.stats.attack * 1.15); 
+      scaledEnemy.stats.defense = Math.floor(scaledEnemy.stats.defense * 1.15); 
+      scaledEnemy.stats.speed = Math.floor(scaledEnemy.stats.speed * 1.1);
     }
 
     setEnemy({ ...scaledEnemy, isPlayer: false });

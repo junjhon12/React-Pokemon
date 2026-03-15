@@ -76,16 +76,14 @@ export const useRewards = (onNextFloor: () => void) => {
 
   const submitScoreToLeaderboard = async (player: Pokemon, floor: number) => {
     try {
-      const token = localStorage.getItem('rogue-google-token');
-      if (!token) return; // Not logged in, skip silently
+      const name = localStorage.getItem('rogue-player-name');
+      if (!name) return; // No name set, skip silently
 
       await fetch(`${API_URL}/api/leaderboard`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
+          name,
           pokemon:   player.name,
           pokemonId: player.id,
           floor,

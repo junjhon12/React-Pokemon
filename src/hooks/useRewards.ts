@@ -26,7 +26,7 @@ export const useRewards = (onNextFloor: () => void) => {
 
   function handleLevelUp(currentStats: Pokemon, overflowXp: number) {
       const newLevel = (currentStats.level || 1) + 1;
-      const newMaxXp = Math.floor((currentStats.maxXp || 100) * 1.2);
+      const newMaxXp = Math.floor((currentStats.maxXp || 100) * 1.3);
       const newStats = { ...currentStats.stats };
       const upgradeableStats: StatKey[] = ['maxHp', 'attack', 'defense', 'speed'];
       
@@ -76,7 +76,7 @@ export const useRewards = (onNextFloor: () => void) => {
   };
 
   const handleEnemyDefeat = async (defeatedEnemy: Pokemon, currentPlayer: Pokemon) => {
-    const xpGain = (defeatedEnemy.level || 1) * 50; 
+    const xpGain = Math.floor((defeatedEnemy.level || 1) * 50 * (1 + floor * 0.1));
     let newPlayer = { ...currentPlayer };
     const totalXp = (newPlayer.xp || 0) + xpGain;
     const oldLevel = newPlayer.level || 1;
@@ -135,30 +135,42 @@ export const useRewards = (onNextFloor: () => void) => {
     
     // TRULY RANDOM LOOT POOL
     const finalLoot: Upgrade[] = [];
-    const numDrops = Math.floor(Math.random() * 3) + 1; // You can get 1, 2, or 3 rewards per room
+    const usedNames = new Set<string>();
 
-    for (let i = 0; i < numDrops; i++) {
-      const isEquipmentRoll = Math.random() < 0.25; // 25% chance this slot is equipment
-      
-      if (isEquipmentRoll && (currentPlayer.equipment?.length || 0) < 6) {
-        const randomItemName = ITEM_POOL[Math.floor(Math.random() * ITEM_POOL.length)];
-        const equipment = await fetchEquipmentFromPokeAPI(randomItemName) || {
-            id: `local-${randomItemName}`, name: randomItemName.replace('-', ' ').toUpperCase(),
-            description: 'A powerful held item generated locally.',
-            spriteUrl: 'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/items/master-ball.png',
-            statModifiers: { attack: 2, defense: 2, maxHp: 5 } 
-        };
-        // Ensure no duplicate items in the same loot pool
-        if (!finalLoot.some(l => l.name === equipment.name)) {
-          finalLoot.push({ id: Math.random().toString(), name: equipment.name, description: equipment.description, stat: 'equipment', amount: 0, equipment });
-        }
-      } else {
-        // Roll a single random upgrade (Potion, Stat boost, Evo Stone, etc.)
-        const randomUpgrade = getRandomUpgrades(1, currentPlayer.id, newPlayer.status)[0];
-        finalLoot.push({ ...randomUpgrade, id: Math.random().toString() }); // Clone to allow duplicates (e.g., 2 Potions)
+    // Slot 1: Always a Potion (Super Potion on boss floors, regular otherwise)
+    const guaranteedHeal: Upgrade = floor % 10 === 0
+      ? { id: Math.random().toString(), name: 'Super Potion', description: 'Heal 60 HP', stat: 'hp', amount: 60 }
+      : { id: Math.random().toString(), name: 'Potion',       description: 'Heal 30 HP', stat: 'hp', amount: 30 };
+    finalLoot.push(guaranteedHeal);
+    usedNames.add(guaranteedHeal.name);
+
+    // Slot 2: 35% chance for equipment, otherwise a stat upgrade
+    const canEquip = (currentPlayer.equipment?.length || 0) < 6;
+    if (Math.random() < 0.35 && canEquip) {
+      const randomItemName = ITEM_POOL[Math.floor(Math.random() * ITEM_POOL.length)];
+      const equipment = await fetchEquipmentFromPokeAPI(randomItemName) || {
+        id: `local-${randomItemName}`, name: randomItemName.replace('-', ' ').toUpperCase(),
+        description: 'A powerful held item.', spriteUrl: 'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/items/master-ball.png',
+        statModifiers: { attack: 3, defense: 3, maxHp: 8 }
+      };
+      if (!usedNames.has(equipment.name)) {
+        finalLoot.push({ id: Math.random().toString(), name: equipment.name, description: equipment.description, stat: 'equipment', amount: 0, equipment });
+        usedNames.add(equipment.name);
+      }
+    } 
+
+    // Fill remaining slots up to 3 with non-duplicate stat upgrades
+    let attempts = 0;
+    while (finalLoot.length < 3 && attempts < 10) {
+      attempts++;
+      const candidate = getRandomUpgrades(1, currentPlayer.id, newPlayer.status)[0];
+      const slotUpgrade = { ...candidate, id: Math.random().toString() };
+      if (!usedNames.has(slotUpgrade.name)) {
+        finalLoot.push(slotUpgrade);
+        usedNames.add(slotUpgrade.name);
       }
     }
-    
+
     setUpgrades(finalLoot);
   };
 

@@ -170,7 +170,9 @@ export const useCombat = (onEnemyDefeat: (enemy: Pokemon, player: Pokemon) => Pr
     const mitigation = 10 / (10 + getEffectiveStat(enemy, 'defense', dungeonModifier));
     
     // FIX: Added + 2 to the player's damage formula here so they hit harder
-    const finalDamage = Math.max(1, Math.floor((baseDmg * effectiveness * mitigation * (isCrit ? 1.5 : 1)) + 2));
+    const finalDamage = Math.max(1, Math.floor(
+      baseDmg * effectiveness * mitigation * (isCrit ? 1.5 : 1)  
+    ));
     const remainingEnemyHp = Math.max(enemy.stats.hp - finalDamage, 0);
 
     patchState((s: GameState) => ({ 

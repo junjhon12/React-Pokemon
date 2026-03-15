@@ -66,9 +66,12 @@ export const getRandomPokemon = async (id: number, isPlayer: boolean = false, ta
 
   // FIX: Changed divisor from 15 to 10 for wider stat variation
   const normalizeStat = (base: number) => Math.max(1, Math.round(base / 10));
+  const normalizePlayerStat = (base: number) => Math.max(1, Math.round(base / 7));
 
   const rawHp = data.stats.find((s: PokeAPIStat) => s.stat.name === 'hp').base_stat;
-  const hp = normalizeStat(rawHp) * 5; 
+  const hp = isPlayer 
+  ? normalizePlayerStat(rawHp) * 8 
+  : normalizeStat(rawHp) * 5;
   const attack = normalizeStat(data.stats.find((s: PokeAPIStat) => s.stat.name === 'attack').base_stat);
   const defense = normalizeStat(data.stats.find((s: PokeAPIStat) => s.stat.name === 'defense').base_stat);
   const speed = normalizeStat(data.stats.find((s: PokeAPIStat) => s.stat.name === 'speed').base_stat);
@@ -127,7 +130,7 @@ export const getRandomPokemon = async (id: number, isPlayer: boolean = false, ta
     level: 1, 
     types: data.types.map((t: PokeAPIType) => t.type.name),
     xp: 0,
-    maxXp: 100,
+    maxXp: 50,
     status: 'normal'
   };
 };

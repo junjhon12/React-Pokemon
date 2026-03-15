@@ -38,24 +38,26 @@ const UPGRADES: Upgrade[] = [
   { id: '1', name: 'Protein', description: 'Increases Attack by 2', stat: 'attack', amount: 2 },
   { id: '2', name: 'Carbos', description: 'Increases Speed by 2', stat: 'speed', amount: 2 },
   { id: '3', name: 'HP Up', description: 'Increases Max HP by 10', stat: 'maxHp', amount: 10 },
-  { id: '4', name: 'Potion', description: 'Heal 25 HP', stat: 'hp', amount: 25 },
+  { id: '4', name: 'Crit Chance', description: 'Increases Crit Chance by 2%', stat: 'critChance', amount: 2 },
   { id: '5', name: 'Iron', description: 'Increases Defense by 2', stat: 'defense', amount: 2 }, 
 ];
 
 export const getRandomUpgrades = (count: number, playerId?: number, playerStatus?: string): Upgrade[] => {
   const currentPool = [...UPGRADES];
+
   if (playerId && EVOLUTION_MAP[playerId]) {
     currentPool.push({ id: 'evo_stone', name: 'Evolution Stone', description: 'Evolve into your next form!', stat: 'evolve', amount: 0 });
   }
   if (playerStatus && playerStatus !== 'normal') {
     currentPool.push({ id: 'full_heal', name: 'Full Heal', description: `Cures your ${playerStatus.toUpperCase()} status!`, stat: 'status', amount: 0 });
   }
-  return currentPool.sort(() => 0.5 - Math.random()).slice(0, count);
+  const shuffled = currentPool.sort(() => 0.5 - Math.random()).slice(0, count);
+  return shuffled;
 };
 
 export const scaleEnemyStats = (basePokemon: Pokemon, floor: number): Pokemon => {
   // 10% compounding stat growth per floor
-  const multiplier = Math.pow(1.10, floor > 1 ? floor - 1 : 0);
+  const multiplier = Math.pow(1.06, floor > 1 ? floor - 1 : 0);
   
   const newStats = { ...basePokemon.stats };
   

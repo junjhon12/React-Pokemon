@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { StartScreen } from './components/StartScreen';
 import { LootOverlay } from './components/LootOverlay';
 import { PlayerDashboard } from './components/PlayerDashboard';
@@ -10,6 +11,8 @@ import { MoveReplacementOverlay } from './components/MoveReplacementOverlay';
 import './App.css';
 
 function App() {
+  const [isLoading, setIsLoading] = useState(false);
+
   const player          = useGameStore((state) => state.player);
   const enemy           = useGameStore((state) => state.enemy);
   const gameLog         = useGameStore((state) => state.gameLog);
@@ -25,13 +28,23 @@ function App() {
 
   const {
     startGame, selectStarterAndStart, handleMoveClick, handleSelectUpgrade,
-    handleReplaceMove, handleSkipMove, gameOver, winner
+    handleReplaceMove, handleSkipMove, gameOver, winner,
   } = useGameEngine();
+
+  const handleSelectStarterWithLoading = async (starterId: number) => {
+    setIsLoading(true);
+    await selectStarterAndStart(starterId);
+    setIsLoading(false);
+  };
+
+  const handleSelectUpgradeWithLoading = async (upgrade: Parameters<typeof handleSelectUpgrade>[0]) => {
+    setIsLoading(true);
+    await handleSelectUpgrade(upgrade);
+    setIsLoading(false);
+  };
 
   const handleFinishRun = () => {
     if (!player) return;
-
-    // Save to localStorage high score list
     interface HighScoreEntry { pokemon: string; floor: number; date: string; }
     const currentHighScores: HighScoreEntry[] = JSON.parse(localStorage.getItem('rogue-high-scores') || '[]');
     currentHighScores.push({
@@ -41,23 +54,36 @@ function App() {
     });
     currentHighScores.sort((a, b) => b.floor - a.floor);
     localStorage.setItem('rogue-high-scores', JSON.stringify(currentHighScores.slice(0, 10)));
-
     resetRun();
   };
 
   const areaNumber  = Math.ceil(floor / 5);
   const isBossFloor = floor % 10 === 0;
-  const floorLabel  = isBossFloor ? `BOSS FLOOR ${floor}` : floor % 5 === 0 ? `MINI-BOSS FLOOR ${floor}` : `FLOOR ${floor}`;
+  const floorLabel  = isBossFloor
+    ? `BOSS FLOOR ${floor}`
+    : floor % 5 === 0
+      ? `MINI-BOSS FLOOR ${floor}`
+      : `FLOOR ${floor}`;
 
   return (
     <div className='min-h-screen w-full bg-black flex items-start md:items-center justify-center font-mono p-0 sm:p-2 md:p-4'>
+
+      {/* Global loading overlay */}
+      {isLoading && (
+        <div className='fixed inset-0 bg-black/80 z-[100] flex flex-col items-center justify-center gap-4'>
+          <div className='w-12 h-12 border-4 border-yellow-400 border-t-transparent rounded-full animate-spin' />
+          <p className='text-yellow-400 font-black text-lg tracking-widest uppercase animate-pulse'>
+            Loading...
+          </p>
+        </div>
+      )}
 
       {isGameStarted === 'START' && (
         <StartScreen highScore={highScore} startGame={startGame} />
       )}
 
       {isGameStarted === 'SELECT' && (
-        <StarterSelection onSelectStarter={selectStarterAndStart} />
+        <StarterSelection onSelectStarter={handleSelectStarterWithLoading} />
       )}
 
       {isGameStarted === 'BATTLE' && (
@@ -76,7 +102,10 @@ function App() {
             <CombatLog gameLog={gameLog} />
 
             <div className='order-2 md:order-3 w-full h-[50vh] md:h-auto md:flex-1 relative bg-[#1a1a24] overflow-hidden'>
-              <LootOverlay upgrades={upgrades} handleSelectUpgrade={handleSelectUpgrade} />
+              <LootOverlay
+                upgrades={upgrades}
+                handleSelectUpgrade={handleSelectUpgradeWithLoading}
+              />
 
               {pendingMove && (
                 <MoveReplacementOverlay
@@ -89,18 +118,29 @@ function App() {
                 <div className='absolute inset-0 bg-black/90 z-50 flex flex-col items-center justify-center p-4 text-center'>
                   <h2 className='text-4xl md:text-6xl font-black mb-4 text-yellow-400'>GAME OVER</h2>
 
-                  {/* Run summary */}
                   {player && (
                     <div className='mb-6 space-y-1 text-sm md:text-base'>
                       <p className='text-gray-300'>
-                        You reached <span className='text-white font-bold'>{floorLabel}</span> in <span className='text-white font-bold'>Area {areaNumber}</span>
+                        You reached <span className='text-white font-bold'>{floorLabel}</span> in{' '}
+                        <span className='text-white font-bold'>Area {areaNumber}</span>
                       </p>
                       <p className='text-gray-300'>
-                        Pokémon: <span className='text-white font-bold'>{player.name}</span> &nbsp;·&nbsp; Level <span className='text-white font-bold'>{player.level}</span>
+                        Pokémon: <span className='text-white font-bold'>{player.name}</span>
+                        {' '}·{' '}
+                        Level <span className='text-white font-bold'>{player.level}</span>
+                      </p>
+                      <p className='text-gray-300'>
+                        HP remaining:{' '}
+                        <span className='text-red-400 font-bold'>
+                          {Math.ceil(player.stats.hp)} / {player.stats.maxHp}
+                        </span>
                       </p>
                       {(player.equipment?.length ?? 0) > 0 && (
                         <p className='text-gray-300'>
-                          Items held: <span className='text-purple-400 font-bold'>{player.equipment!.map(e => e.name).join(', ')}</span>
+                          Items held:{' '}
+                          <span className='text-purple-400 font-bold'>
+                            {player.equipment!.map(e => e.name).join(', ')}
+                          </span>
                         </p>
                       )}
                     </div>

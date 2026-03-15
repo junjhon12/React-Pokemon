@@ -32,10 +32,19 @@ interface LearnsetMove {
   url: string;
 }
 
+const TACKLE_FALLBACK: Move = {
+  name:     'Tackle',
+  type:     'normal',
+  power:    40,
+  accuracy: 100,
+  pp:       20,
+  maxPp:    20,
+};
+
 export const fetchMoveDetails = async (url: string): Promise<Move | null> => {
   try {
     const response = await fetch(url);
-    const data = await response.json();
+    const data     = await response.json();
 
     if (!data.power && data.meta?.category?.name !== 'ailment') return null;
 
@@ -46,38 +55,47 @@ export const fetchMoveDetails = async (url: string): Promise<Move | null> => {
     }
 
     return {
-      name: data.name.replace('-', ' '),
-      type: data.type.name,
-      power: data.power || 0, 
-      accuracy: data.accuracy || 100,
-      pp: data.pp || 15,
-      maxPp: data.pp || 15,
-      statusEffect: moveStatus as "poison" | "burn" | "paralyze" | "freeze" | "stunned" | undefined,
+      name:         data.name.replace('-', ' '),
+      type:         data.type.name,
+      power:        data.power || 0,
+      accuracy:     data.accuracy || 100,
+      pp:           data.pp || 15,
+      maxPp:        data.pp || 15,
+      statusEffect: moveStatus as 'poison' | 'burn' | 'paralyze' | 'freeze' | 'stunned' | undefined,
     };
   } catch (e) {
-    console.error("Error fetching move:", e);
+    console.error('Error fetching move:', e);
     return null;
   }
 };
 
-export const getRandomPokemon = async (id: number, isPlayer: boolean = false, targetLevel: number = 1): Promise<Pokemon> => {
+export const getRandomPokemon = async (
+  id: number,
+  isPlayer: boolean = false,
+  targetLevel: number = 1
+): Promise<Pokemon> => {
   const response = await fetch(`${POKE_API_URL}${id}`);
-  const data = await response.json();
+  const data     = await response.json();
 
-  // FIX: Changed divisor from 15 to 10 for wider stat variation
-  const normalizeStat = (base: number) => Math.max(1, Math.round(base / 10));
+  const normalizeStat       = (base: number) => Math.max(1, Math.round(base / 10));
   const normalizePlayerStat = (base: number) => Math.max(1, Math.round(base / 7));
 
-  const rawHp = data.stats.find((s: PokeAPIStat) => s.stat.name === 'hp').base_stat;
-  const hp = isPlayer 
-  ? normalizePlayerStat(rawHp) * 8 
-  : normalizeStat(rawHp) * 5;
-  const attack = normalizeStat(data.stats.find((s: PokeAPIStat) => s.stat.name === 'attack').base_stat);
-  const defense = normalizeStat(data.stats.find((s: PokeAPIStat) => s.stat.name === 'defense').base_stat);
-  const speed = normalizeStat(data.stats.find((s: PokeAPIStat) => s.stat.name === 'speed').base_stat);
+  const rawHp  = data.stats.find((s: PokeAPIStat) => s.stat.name === 'hp').base_stat;
+  const hp      = isPlayer ? normalizePlayerStat(rawHp) * 8 : normalizeStat(rawHp) * 5;
+  const attack  = isPlayer
+    ? normalizePlayerStat(data.stats.find((s: PokeAPIStat) => s.stat.name === 'attack').base_stat)
+    : normalizeStat(data.stats.find((s: PokeAPIStat) => s.stat.name === 'attack').base_stat);
+  const defense = isPlayer
+    ? normalizePlayerStat(data.stats.find((s: PokeAPIStat) => s.stat.name === 'defense').base_stat)
+    : normalizeStat(data.stats.find((s: PokeAPIStat) => s.stat.name === 'defense').base_stat);
+  const speed   = isPlayer
+    ? normalizePlayerStat(data.stats.find((s: PokeAPIStat) => s.stat.name === 'speed').base_stat)
+    : normalizeStat(data.stats.find((s: PokeAPIStat) => s.stat.name === 'speed').base_stat);
 
   const levelUpMoves = data.moves.map((m: PokeAPIMoveEntry) => {
-    const levelDetail = m.version_group_details.find((v: PokeAPIVersionGroupDetail) => v.move_learn_method.name === 'level-up');
+    const levelDetail = m.version_group_details.find(
+      (v: PokeAPIVersionGroupDetail) => v.move_learn_method.name === 'level-up'
+    );
     if (levelDetail) {
       return { level: levelDetail.level_learned_at, name: m.move.name, url: m.move.url };
     }
@@ -91,8 +109,10 @@ export const getRandomPokemon = async (id: number, isPlayer: boolean = false, ta
       uniqueMoves.set(m.name, m);
     }
   });
-  
-  const learnset = Array.from(uniqueMoves.values()).sort((a: LearnsetMove, b: LearnsetMove) => a.level - b.level);
+
+  const learnset = Array.from(uniqueMoves.values()).sort(
+    (a: LearnsetMove, b: LearnsetMove) => a.level - b.level
+  );
 
   let moveUrlsToFetch: string[] = [];
 
@@ -100,46 +120,49 @@ export const getRandomPokemon = async (id: number, isPlayer: boolean = false, ta
     moveUrlsToFetch = learnset.slice(0, 3).map((m: LearnsetMove) => m.url);
   } else {
     const availableMoves = learnset.filter((m: LearnsetMove) => m.level <= targetLevel);
-    const recentMoves = availableMoves.slice(-4);
-    
+    const recentMoves    = availableMoves.slice(-4);
     if (recentMoves.length === 0 && learnset.length > 0) {
-       recentMoves.push(learnset[0]);
+      recentMoves.push(learnset[0]);
     }
     moveUrlsToFetch = recentMoves.map((m: LearnsetMove) => m.url);
   }
 
   const movePromises = moveUrlsToFetch.map(url => fetchMoveDetails(url));
-  const resolved = await Promise.all(movePromises);
-  const validMoves = resolved.filter((m): m is Move => m !== null);
+  const resolved     = await Promise.all(movePromises);
+  let validMoves     = resolved.filter((m): m is Move => m !== null);
+
+  // Guarantee at least one move so the Pokémon is never completely moveless
+  if (validMoves.length === 0) {
+    validMoves = [{ ...TACKLE_FALLBACK }];
+  }
 
   return {
-    id: data.id,
+    id:   data.id,
     name: data.name.charAt(0).toUpperCase() + data.name.slice(1),
     stats: {
-      hp: hp,
-      maxHp: hp,
-      attack: attack,
-      defense: defense,
-      speed: speed,
+      hp,
+      maxHp:      hp,
+      attack,
+      defense,
+      speed,
       critChance: 5,
-      dodge: 0,
+      dodge:      0,
     },
-    isPlayer: isPlayer,
-    moves: validMoves,
-    learnset: learnset, 
-    level: 1, 
-    types: data.types.map((t: PokeAPIType) => t.type.name),
-    xp: 0,
-    maxXp: 50,
-    status: 'normal'
+    isPlayer,
+    moves:   validMoves,
+    learnset,
+    level:   1,
+    types:   data.types.map((t: PokeAPIType) => t.type.name),
+    xp:      0,
+    maxXp:   50,
+    status:  'normal',
   };
 };
 
 export const fetchEquipmentFromPokeAPI = async (itemName: string): Promise<Equipment | null> => {
   try {
     const response = await fetch(`https://pokeapi.co/api/v2/item/${itemName}`);
-    const data = await response.json();
-
+    const data     = await response.json();
     const customData = CUSTOM_ITEM_DATA[itemName];
 
     if (!customData) {
@@ -148,27 +171,26 @@ export const fetchEquipmentFromPokeAPI = async (itemName: string): Promise<Equip
     }
 
     return {
-      id: `pokeapi-${data.id}`,
-      name: customData.name,
-      description: customData.desc,
-      spriteUrl: data.sprites.default,
-      statModifiers: customData.stats
+      id:           `pokeapi-${data.id}`,
+      name:         customData.name,
+      description:  customData.desc,
+      spriteUrl:    data.sprites.default,
+      statModifiers: customData.stats,
     };
-
   } catch (error) {
-    console.error("Error fetching item from PokeAPI:", error);
+    console.error('Error fetching item from PokeAPI:', error);
     return null;
   }
 };
 
 export const fetchPokemonCard = async () => {
   try {
-    const bulbasaur = await tcgdex.fetch('cards', 'base1-44');
+    const bulbasaur  = await tcgdex.fetch('cards', 'base1-44');
     const charmander = await tcgdex.fetch('cards', 'base1-46');
-    const squirtle = await tcgdex.fetch('cards', 'base1-63');
+    const squirtle   = await tcgdex.fetch('cards', 'base1-63');
     return [bulbasaur, charmander, squirtle].filter(Boolean);
   } catch (error) {
-    console.error("Error fetching from TCGdex SDK:", error);
+    console.error('Error fetching from TCGdex SDK:', error);
     return [];
   }
 };

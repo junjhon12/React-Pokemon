@@ -7,10 +7,6 @@ import { scaleEnemyStats, getRandomUpgrades, EVOLUTION_MAP } from '../utils/game
 import { ITEM_POOL } from '../data/items';
 import { useGameStore } from '../store/gameStore';
 
-const API_URL = import.meta.env.PROD
-  ? 'https://pokemon-rogue-api.onrender.com'
-  : 'http://localhost:5000';
-
 export const applyPPScale = (move: Move): Move => {
   const power = move.power || 0;
   if (power > 100)      move.maxPp = 2;
@@ -36,10 +32,9 @@ export const useRewards = (onNextFloor: () => void) => {
     const upgradeableStats: StatKey[] = ['maxHp', 'attack', 'defense', 'speed'];
 
     const randomStat     = upgradeableStats[Math.floor(Math.random() * upgradeableStats.length)];
-    // Scale increase with level so upgrades keep pace with enemy scaling
     const increaseAmount = Math.floor(Math.random() * 2) + 1 + Math.floor(newLevel / 5);
-
     const actualIncrease = randomStat === 'maxHp' ? increaseAmount * 5 : increaseAmount;
+
     newStats[randomStat] += actualIncrease;
     newStats.hp = newStats.maxHp;
 
@@ -70,32 +65,11 @@ export const useRewards = (onNextFloor: () => void) => {
     else if (fetchedMove.power >= 55) rarityName = 'Uncommon';
     else if (fetchedMove.power > 0)   rarityName = 'Common';
 
-    setGameLog((prev: string[]) => [...prev, `An enemy dropped a random ${rarityName} move scroll!`]);
+    setGameLog((prev: string[]) => [...prev, `An enemy dropped a random ${rarityName} move scroll!`].slice(-100));
     return fetchedMove;
   };
 
-  const submitScoreToLeaderboard = async (player: Pokemon, floor: number) => {
-    try {
-      const name = localStorage.getItem('rogue-player-name');
-      if (!name) return; // No name set, skip silently
-
-      await fetch(`${API_URL}/api/leaderboard`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          name,
-          pokemon:   player.name,
-          pokemonId: player.id,
-          floor,
-        }),
-      });
-    } catch (error) {
-      console.error('Failed to submit score:', error);
-    }
-  };
-
   const handleEnemyDefeat = async (defeatedEnemy: Pokemon, currentPlayer: Pokemon) => {
-    // Always read floor fresh from store inside async callbacks
     const floor   = useGameStore.getState().floor;
     const xpGain  = Math.floor((defeatedEnemy.level || 1) * 50 * (1 + floor * 0.1));
     let newPlayer = { ...currentPlayer };
@@ -107,15 +81,14 @@ export const useRewards = (onNextFloor: () => void) => {
       if (droppedMove) {
         if (!currentPlayer.moves?.some(m => m.name.toLowerCase() === droppedMove.name.toLowerCase())) {
           if (currentPlayer.moves && currentPlayer.moves.length < 4) {
-            // Immutable push — create new array instead of mutating
             const newMoves = [...currentPlayer.moves, droppedMove];
-            setGameLog((prev: string[]) => [...prev, `${currentPlayer.name} found and learned ${droppedMove.name}!`]);
+            setGameLog((prev: string[]) => [...prev, `${currentPlayer.name} found and learned ${droppedMove.name}!`].slice(-100));
             setPlayer({ ...currentPlayer, moves: newMoves });
           } else {
             useGameStore.getState().setPendingMove(droppedMove);
           }
         } else {
-          setGameLog((prev: string[]) => [...prev, `You found a ${droppedMove.name} scroll, but already know it.`]);
+          setGameLog((prev: string[]) => [...prev, `You found a ${droppedMove.name} scroll, but already know it.`].slice(-100));
         }
       }
     }
@@ -129,7 +102,7 @@ export const useRewards = (onNextFloor: () => void) => {
         ...prev,
         `Level Up! You are Lvl ${newPlayer.level}! PP Restored!`,
         levelUpData.message,
-      ]);
+      ].slice(-100));
 
       const movesToLearn = newPlayer.learnset?.filter(
         m => m.level > oldLevel && m.level <= (newPlayer.level || 1)
@@ -142,7 +115,7 @@ export const useRewards = (onNextFloor: () => void) => {
           const scaledMove = applyPPScale(fetchedMove);
           if ((newPlayer.moves?.length || 0) < 4) {
             newPlayer.moves?.push(scaledMove);
-            setGameLog((prev: string[]) => [...prev, `${newPlayer.name} learned ${scaledMove.name}!`]);
+            setGameLog((prev: string[]) => [...prev, `${newPlayer.name} learned ${scaledMove.name}!`].slice(-100));
           } else {
             useGameStore.getState().setPendingMove(scaledMove);
             break;
@@ -151,19 +124,16 @@ export const useRewards = (onNextFloor: () => void) => {
       }
     } else {
       newPlayer.xp = totalXp;
-      setGameLog((prev: string[]) => [...prev, `You gained ${xpGain} XP.`]);
+      setGameLog((prev: string[]) => [...prev, `You gained ${xpGain} XP.`].slice(-100));
     }
 
     if (floor % 10 === 0) {
       newPlayer.moves  = newPlayer.moves?.map(m => ({ ...m, pp: m.maxPp || 20 }));
       newPlayer.status = 'normal';
-      setGameLog((prev: string[]) => [...prev, `Boss defeated! PP fully restored and status conditions cured!`]);
+      setGameLog((prev: string[]) => [...prev, `Boss defeated! PP fully restored and status conditions cured!`].slice(-100));
     }
 
     setPlayer(newPlayer);
-
-    // Submit score after every enemy defeat (backend only updates if it's a new high score)
-    await submitScoreToLeaderboard(newPlayer, floor);
 
     // --- Loot generation ---
     const finalLoot: Upgrade[] = [];
@@ -179,14 +149,17 @@ export const useRewards = (onNextFloor: () => void) => {
     if (Math.random() < 0.35 && canEquip) {
       const randomItemName = ITEM_POOL[Math.floor(Math.random() * ITEM_POOL.length)];
       const equipment = await fetchEquipmentFromPokeAPI(randomItemName) || {
-        id:          `local-${randomItemName}`,
-        name:        randomItemName.replace('-', ' ').toUpperCase(),
-        description: 'A powerful held item.',
-        spriteUrl:   'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/items/master-ball.png',
+        id:            `local-${randomItemName}`,
+        name:          randomItemName.replace('-', ' ').toUpperCase(),
+        description:   'A powerful held item.',
+        spriteUrl:     'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/items/master-ball.png',
         statModifiers: { attack: 3, defense: 3, maxHp: 8 },
       };
       if (!usedNames.has(equipment.name)) {
-        finalLoot.push({ id: Math.random().toString(), name: equipment.name, description: equipment.description, stat: 'equipment', amount: 0, equipment });
+        finalLoot.push({
+          id: Math.random().toString(), name: equipment.name,
+          description: equipment.description, stat: 'equipment', amount: 0, equipment,
+        });
         usedNames.add(equipment.name);
       }
     }
@@ -194,8 +167,8 @@ export const useRewards = (onNextFloor: () => void) => {
     let attempts = 0;
     while (finalLoot.length < 3 && attempts < 10) {
       attempts++;
-      const candidate    = getRandomUpgrades(1, currentPlayer.id, newPlayer.status)[0];
-      const slotUpgrade  = { ...candidate, id: Math.random().toString() };
+      const candidate   = getRandomUpgrades(1, currentPlayer.id, newPlayer.status)[0];
+      const slotUpgrade = { ...candidate, id: Math.random().toString() };
       if (!usedNames.has(slotUpgrade.name)) {
         finalLoot.push(slotUpgrade);
         usedNames.add(slotUpgrade.name);
@@ -211,16 +184,16 @@ export const useRewards = (onNextFloor: () => void) => {
 
     if (upgrade.stat === 'status') {
       setPlayer({ ...player, status: 'normal' });
-      setGameLog((prev: string[]) => [...prev, `${player.name} used a Full Heal and cured its status!`]);
+      setGameLog((prev: string[]) => [...prev, `${player.name} used a Full Heal and cured its status!`].slice(-100));
     } else if (upgrade.stat === 'equipment' && upgrade.equipment) {
       setPlayer({ ...player, equipment: [...(player.equipment || []), upgrade.equipment] });
-      setGameLog((prev: string[]) => [...prev, `Equipped ${upgrade.equipment!.name}!`, `Stat bonuses applied dynamically.`]);
+      setGameLog((prev: string[]) => [...prev, `Equipped ${upgrade.equipment!.name}!`, `Stat bonuses applied dynamically.`].slice(-100));
     } else if (upgrade.stat === 'evolve') {
-      const nextId      = EVOLUTION_MAP ? EVOLUTION_MAP[player.id] : player.id + 1;
-      const evolvedBase = await getRandomPokemon(nextId, true, player.level || 1);
+      const nextId        = EVOLUTION_MAP ? EVOLUTION_MAP[player.id] : player.id + 1;
+      const evolvedBase   = await getRandomPokemon(nextId, true, player.level || 1);
       const scaledEvolved = scaleEnemyStats(evolvedBase, player.level || 1);
       setPlayer({ ...scaledEvolved, isPlayer: true, xp: player.xp, maxXp: player.maxXp, equipment: player.equipment, moves: player.moves });
-      setGameLog((prev: string[]) => [...prev, `What? ${player.name} is evolving!`, `Congratulations! You evolved into ${evolvedBase.name}!`]);
+      setGameLog((prev: string[]) => [...prev, `What? ${player.name} is evolving!`, `Congratulations! You evolved into ${evolvedBase.name}!`].slice(-100));
     } else {
       setPlayer((prev: Pokemon | null) => {
         if (!prev) return null;
@@ -237,18 +210,18 @@ export const useRewards = (onNextFloor: () => void) => {
   const handleReplaceMove = (moveIndex: number) => {
     const { player, pendingMove, setPendingMove } = useGameStore.getState();
     if (!player || !pendingMove) return;
-    const newMoves    = [...(player.moves || [])];
-    const oldMoveName = newMoves[moveIndex].name;
+    const newMoves      = [...(player.moves || [])];
+    const oldMoveName   = newMoves[moveIndex].name;
     newMoves[moveIndex] = pendingMove;
     setPlayer({ ...player, moves: newMoves });
-    setGameLog((prev) => [...prev, `1, 2, and... Poof!`, `${player.name} forgot ${oldMoveName} and learned ${pendingMove.name}!`]);
+    setGameLog((prev) => [...prev, `1, 2, and... Poof!`, `${player.name} forgot ${oldMoveName} and learned ${pendingMove.name}!`].slice(-100));
     setPendingMove(null);
   };
 
   const handleSkipMove = () => {
     const { player, pendingMove, setPendingMove } = useGameStore.getState();
     if (!player || !pendingMove) return;
-    setGameLog((prev) => [...prev, `${player.name} gave up on learning ${pendingMove.name}.`]);
+    setGameLog((prev) => [...prev, `${player.name} gave up on learning ${pendingMove.name}.`].slice(-100));
     setPendingMove(null);
   };
 

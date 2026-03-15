@@ -8,9 +8,24 @@ describe('getTypeEffectiveness', () => {
     expect(multiplier).toBe(2);
   });
 
-  it('should return 1 for normal effective moves', () => {
+  it('should return 1 for neutral moves', () => {
     const multiplier = getTypeEffectiveness('normal', ['grass']);
     expect(multiplier).toBe(1);
+  });
+
+  it('should return 0.5 for not very effective moves', () => {
+    const multiplier = getTypeEffectiveness('fire', ['water']);
+    expect(multiplier).toBe(0.5);
+  });
+
+  it('should return 0 for immune matchups', () => {
+    const multiplier = getTypeEffectiveness('normal', ['ghost']);
+    expect(multiplier).toBe(0);
+  });
+
+  it('should return 4 for dual-type double weakness', () => {
+    const multiplier = getTypeEffectiveness('ground', ['fire', 'rock']);
+    expect(multiplier).toBe(4);
   });
 
   it('should return 2 if the defender has dual types and is weak to one', () => {
@@ -18,14 +33,23 @@ describe('getTypeEffectiveness', () => {
     expect(multiplier).toBe(2);
   });
 
-  it('should return 1 for unknown or undefined types', () => {
+  it('should return 0.5 for dual types where one resists', () => {
+    const multiplier = getTypeEffectiveness('water', ['water', 'grass']);
+    expect(multiplier).toBe(0.25);
+  });
+
+  it('should return 0 if either defender type is immune', () => {
+    const multiplier = getTypeEffectiveness('electric', ['ground', 'flying']);
+    expect(multiplier).toBe(0);
+  });
+
+  it('should return 1 for unknown or undefined move types', () => {
     const multiplier = getTypeEffectiveness('light', ['dark']);
     expect(multiplier).toBe(1);
   });
 });
 
 describe('getEffectiveStat', () => {
-  // 1. Setup Mock Data: A base Pokemon to test on
   const mockPokemon: Pokemon = {
     id: 1,
     name: 'Bulbasaur',
@@ -36,57 +60,51 @@ describe('getEffectiveStat', () => {
     },
     equipment: [],
     level: 0,
-    moves: []
+    moves: [],
   };
 
-  // 2. Setup Mock Data: Fake items to equip
   const muscleBand: Equipment = {
     id: 'item-1', name: 'Muscle Band', description: '', spriteUrl: '',
-    statModifiers: { attack: 15 }
+    statModifiers: { attack: 15 },
   };
 
   const ironBall: Equipment = {
     id: 'item-2', name: 'Iron Ball', description: '', spriteUrl: '',
-    statModifiers: { defense: 25, speed: -15 } // Has a negative penalty!
+    statModifiers: { defense: 25, speed: -15 },
   };
 
   const choiceBand: Equipment = {
     id: 'item-3', name: 'Choice Band', description: '', spriteUrl: '',
-    statModifiers: { attack: 20 }
+    statModifiers: { attack: 20 },
   };
 
   it('should return the base stat when no equipment is held', () => {
-    const attack = getEffectiveStat(mockPokemon, 'attack');
-    expect(attack).toBe(49); // Base attack is 49
+    expect(getEffectiveStat(mockPokemon, 'attack')).toBe(49);
   });
 
   it('should add the stat modifier from a single piece of equipment', () => {
     const equippedMon = { ...mockPokemon, equipment: [muscleBand] };
-    const attack = getEffectiveStat(equippedMon, 'attack');
-    expect(attack).toBe(49 + 15); // 64
+    expect(getEffectiveStat(equippedMon, 'attack')).toBe(64);
   });
 
   it('should accurately stack modifiers from multiple equipment pieces', () => {
-    // Equipping TWO attack-boosting items
     const equippedMon = { ...mockPokemon, equipment: [muscleBand, choiceBand] };
-    const attack = getEffectiveStat(equippedMon, 'attack');
-    expect(attack).toBe(49 + 15 + 20); // 84
+    expect(getEffectiveStat(equippedMon, 'attack')).toBe(84);
   });
 
   it('should correctly apply negative stat penalties from items', () => {
     const equippedMon = { ...mockPokemon, equipment: [ironBall] };
-    const speed = getEffectiveStat(equippedMon, 'speed');
-    const defense = getEffectiveStat(equippedMon, 'defense');
-    
-    expect(defense).toBe(49 + 25); // 74
-    expect(speed).toBe(45 - 15);   // 30 (Proves the penalty works!)
+    expect(getEffectiveStat(equippedMon, 'defense')).toBe(74);
+    expect(getEffectiveStat(equippedMon, 'speed')).toBe(30);
   });
 
   it('should not crash if the equipment array is completely undefined', () => {
     const undefinedEquipMon = { ...mockPokemon };
-    delete undefinedEquipMon.equipment; // Simulate a missing array
-    
-    const maxHp = getEffectiveStat(undefinedEquipMon, 'maxHp');
-    expect(maxHp).toBe(45);
+    delete undefinedEquipMon.equipment;
+    expect(getEffectiveStat(undefinedEquipMon, 'maxHp')).toBe(45);
+  });
+
+  it('should return 1 for neutral moves', () => {
+    expect(getTypeEffectiveness('normal', ['normal'])).toBe(1);
   });
 });

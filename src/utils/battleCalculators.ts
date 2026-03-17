@@ -14,38 +14,43 @@ export interface BattleHitResult {
   isDoubleStrike: boolean;
 }
 
-/**
- * Pure function to calculate damage and hit modifiers.
- */
 export const calculateBattleHit = (
   attacker: Pokemon,
   defender: Pokemon,
   move: Move,
   modifier: DungeonModifier
 ): BattleHitResult => {
-  const isCrit = (Math.random() * 100) < getEffectiveStat(attacker, 'critChance', modifier);
+  const isCrit        = (Math.random() * 100) < getEffectiveStat(attacker, 'critChance', modifier);
   const effectiveness = getTypeEffectiveness(move.type, defender.types);
-  const stab = attacker.types.includes(move.type) ? 1.5 : 1;
-  
+  const stab          = attacker.types.includes(move.type) ? 1.5 : 1;
+
   let weatherMultiplier = 1;
-  if (modifier === 'volcanic' && move.type === 'fire') weatherMultiplier = 1.5;
+  if (modifier === 'volcanic'         && move.type === 'fire')     weatherMultiplier = 1.5;
   if (modifier === 'electric-terrain' && move.type === 'electric') weatherMultiplier = 1.5;
 
   const aSpeed = getEffectiveStat(attacker, 'speed', modifier);
   const dSpeed = getEffectiveStat(defender, 'speed', modifier);
-  
-  let hits = 1;
+
+  let hits          = 1;
   let isDoubleStrike = false;
   if (aSpeed >= dSpeed * 1.5 && Math.random() < 0.3) {
-    hits = 2;
+    hits           = 2;
     isDoubleStrike = true;
   }
 
-  const defenseMitigation = 10 / (10 + getEffectiveStat(defender, 'defense', modifier)); 
-  const baseDamage = (getEffectiveStat(attacker, 'attack', modifier) * move.power) / 50;
-  
+  // Physical/Special split — use the correct offensive and defensive stat pair
+  const isSpecial = move.damageClass === 'special';
+  const atkStat   = isSpecial ? getEffectiveStat(attacker, 'specialAttack',  modifier)
+                              : getEffectiveStat(attacker, 'attack',          modifier);
+  const defStat   = isSpecial ? getEffectiveStat(defender, 'specialDefense', modifier)
+                              : getEffectiveStat(defender, 'defense',         modifier);
+
+  const defenseMitigation = 10 / (10 + defStat);
+  const baseDamage        = (atkStat * move.power) / 50;
+
   const damage = Math.max(1, Math.floor(
-    baseDamage * effectiveness * defenseMitigation * (isCrit ? 1.5 : 1) * stab * weatherMultiplier * hits
+    baseDamage * effectiveness * defenseMitigation
+    * (isCrit ? 1.5 : 1) * stab * weatherMultiplier * hits
   ));
 
   return { damage, isCrit, effectiveness, stab, weatherMultiplier, hits, isDoubleStrike };

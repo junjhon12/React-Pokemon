@@ -14,11 +14,11 @@ import './App.css';
 const TUTORIAL_KEY = 'rogue-tutorial-seen';
 
 const TUTORIAL_TIPS = [
-  { icon: '⚔️', text: 'Pick a move each turn to attack. Moves glow green when super effective.' },
+  { icon: '⚔️', text: 'Pick a move each turn. Moves glow green when super effective. ⚔ = physical, ✦ = special.' },
+  { icon: '💚', text: 'You fully heal and cure all status after every battle — no potions needed.' },
   { icon: '🎒', text: 'You can hold up to 6 items at once — all active simultaneously. Stack freely.' },
   { icon: '📜', text: 'You can know up to 4 moves. Enemies drop move scrolls you can learn or swap in.' },
-  { icon: '💊', text: 'Potions in the loot screen are NOT used automatically — pick them when you need them.' },
-  { icon: '⭐', text: 'Every 5 floors is a Mini-Boss. Every 10 floors is a Legendary Boss that fully restores your HP on defeat.' },
+  { icon: '⭐', text: 'Every 5 floors is a Mini-Boss. Every 10 floors is a Legendary Boss that also restores your PP.' },
 ];
 
 function TutorialModal({ onClose }: { onClose: () => void }) {

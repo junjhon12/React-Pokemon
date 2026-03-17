@@ -39,6 +39,16 @@ export interface GameState {
   resetRun: () => void;
 }
 
+// Backfills missing specialAttack / specialDefense on a saved Pokemon so that
+// stale localStorage state doesn't produce NaN in the stats panel.
+const migratePokemon = (mon: Pokemon | null): Pokemon | null => {
+  if (!mon) return null;
+  const stats = { ...mon.stats };
+  if (stats.specialAttack  === undefined) stats.specialAttack  = stats.attack  ?? 5;
+  if (stats.specialDefense === undefined) stats.specialDefense = stats.defense ?? 5;
+  return { ...mon, stats };
+};
+
 export const useGameStore = create<GameState>()(
   persist(
     (set) => ({
@@ -48,8 +58,6 @@ export const useGameStore = create<GameState>()(
       floor:           1,
       highScore:       parseInt(localStorage.getItem('rogue-score') || '0'),
       upgrades:        [],
-      // FIX: gameLog is NOT persisted (see partialize below) so it always
-      // starts empty — no stale log entries on page refresh
       gameLog:         [],
       isGameStarted:   'START',
       playerTurn:      true,
@@ -82,7 +90,6 @@ export const useGameStore = create<GameState>()(
         enemy:           null,
         floor:           1,
         upgrades:        [],
-        // FIX: always wipe the log on reset
         gameLog:         [],
         isGameStarted:   'START',
         playerTurn:      true,
@@ -95,10 +102,6 @@ export const useGameStore = create<GameState>()(
     {
       name:    'pokemon-rogue-save',
       storage: createJSONStorage(() => localStorage),
-      // FIX: Removed gameLog, playerTurn, playerAnimation, enemyAnimation, and
-      // dungeonModifier from persistence. These are transient battle state; persisting
-      // them caused stale log replays and broken battle state on page refresh.
-      // Only durable run state (player, enemy, floor, upgrades, identity) is saved.
       partialize: (state) => ({
         player:        state.player,
         enemy:         state.enemy,
@@ -107,6 +110,17 @@ export const useGameStore = create<GameState>()(
         upgrades:      state.upgrades,
         playerName:    state.playerName,
       }),
+      // Migrate saved state: backfill specialAttack/specialDefense if missing.
+      // Also bumps version so any truly incompatible old saves are wiped cleanly.
+      version: 2,
+      migrate: (persistedState, version) => {
+        const state = persistedState as Partial<GameState>;
+        if (version < 2) {
+          state.player = migratePokemon(state.player ?? null);
+          state.enemy  = migratePokemon(state.enemy  ?? null);
+        }
+        return state as GameState;
+      },
     }
   )
 );

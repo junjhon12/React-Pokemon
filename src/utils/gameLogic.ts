@@ -59,13 +59,13 @@ export const getTypeEffectiveness = (moveType: string, defenderTypes: string[]):
 };
 
 const UPGRADES: Upgrade[] = [
-  { id: '1', name: 'Protein',      description: 'Increases Attack by 4',          stat: 'attack',         amount: 4  },
-  { id: '2', name: 'Calcium',      description: 'Increases Sp. Atk by 4',         stat: 'specialAttack',  amount: 4  },
-  { id: '3', name: 'Iron',         description: 'Increases Defense by 4',         stat: 'defense',        amount: 4  },
-  { id: '4', name: 'Zinc',         description: 'Increases Sp. Def by 4',         stat: 'specialDefense', amount: 4  },
-  { id: '5', name: 'Carbos',       description: 'Increases Speed by 4',           stat: 'speed',          amount: 4  },
-  { id: '6', name: 'HP Up',        description: 'Increases Max HP by 20',         stat: 'maxHp',          amount: 20 },
-  { id: '7', name: 'Crit Chance',  description: 'Increases Crit Chance by 3%',    stat: 'critChance',     amount: 3  },
+  { id: '1', name: 'Protein',     description: 'Increases Attack by 4',       stat: 'attack',         amount: 4  },
+  { id: '2', name: 'Calcium',     description: 'Increases Sp. Atk by 4',      stat: 'specialAttack',  amount: 4  },
+  { id: '3', name: 'Iron',        description: 'Increases Defense by 4',      stat: 'defense',        amount: 4  },
+  { id: '4', name: 'Zinc',        description: 'Increases Sp. Def by 4',      stat: 'specialDefense', amount: 4  },
+  { id: '5', name: 'Carbos',      description: 'Increases Speed by 4',        stat: 'speed',          amount: 4  },
+  { id: '6', name: 'HP Up',       description: 'Increases Max HP by 20',      stat: 'maxHp',          amount: 20 },
+  { id: '7', name: 'Crit Chance', description: 'Increases Crit Chance by 3%', stat: 'critChance',     amount: 3  },
 ];
 
 export const getRandomUpgrades = (count: number, playerId?: number): Upgrade[] => {
@@ -75,34 +75,35 @@ export const getRandomUpgrades = (count: number, playerId?: number): Upgrade[] =
     currentPool.push({ id: 'evo_stone', name: 'Evolution Stone', description: 'Evolve into your next form!', stat: 'evolve', amount: 0 });
   }
 
-  const shuffled = currentPool.sort(() => 0.5 - Math.random()).slice(0, count);
-  return shuffled;
+  return currentPool.sort(() => 0.5 - Math.random()).slice(0, count);
 };
 
 export const scaleEnemyStats = (basePokemon: Pokemon, floor: number): Pokemon => {
   const multiplier = Math.pow(1.06, floor > 1 ? floor - 1 : 0);
 
-  const newStats = { ...basePokemon.stats };
-  newStats.maxHp          = Math.max(1, Math.floor(newStats.maxHp          * multiplier));
-  newStats.hp             = newStats.maxHp;
-  newStats.attack         = Math.max(1, Math.floor(newStats.attack         * multiplier));
-  newStats.defense        = Math.max(1, Math.floor(newStats.defense        * multiplier));
-  newStats.specialAttack  = Math.max(1, Math.floor(newStats.specialAttack  * multiplier));
-  newStats.specialDefense = Math.max(1, Math.floor(newStats.specialDefense * multiplier));
-  newStats.speed          = Math.max(1, Math.floor(newStats.speed          * multiplier));
+  const s = { ...basePokemon.stats };
 
-  return { ...basePokemon, level: floor, stats: newStats };
+  // Guard all stats with ?? fallbacks so stale saves without the new fields don't NaN
+  s.maxHp          = Math.max(1, Math.floor((s.maxHp          ?? 10)          * multiplier));
+  s.hp             = s.maxHp;
+  s.attack         = Math.max(1, Math.floor((s.attack         ?? 5)           * multiplier));
+  s.defense        = Math.max(1, Math.floor((s.defense        ?? 5)           * multiplier));
+  s.specialAttack  = Math.max(1, Math.floor((s.specialAttack  ?? s.attack)    * multiplier));
+  s.specialDefense = Math.max(1, Math.floor((s.specialDefense ?? s.defense)   * multiplier));
+  s.speed          = Math.max(1, Math.floor((s.speed          ?? 5)           * multiplier));
+
+  return { ...basePokemon, level: floor, stats: s };
 };
 
 export const getEffectiveStat = (mon: Pokemon, stat: StatKey, modifier: DungeonModifier = 'none') => {
-  const baseValue = mon.stats[stat];
+  // Guard: stats saved before specialAttack/specialDefense existed will be undefined
+  const baseValue = mon.stats[stat] ?? 0;
   let flatBonus = 0;
 
   if (mon.equipment && mon.equipment.length > 0) {
     mon.equipment.forEach(item => {
-      if (item.statModifiers[stat] !== undefined) {
-        flatBonus += item.statModifiers[stat]!;
-      }
+      const mod = item.statModifiers[stat];
+      if (mod !== undefined) flatBonus += mod;
     });
   }
 

@@ -1,3 +1,4 @@
+// src/store/gameStore.ts
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import type { Pokemon } from '../types/pokemon';
@@ -41,26 +42,28 @@ export interface GameState {
 export const useGameStore = create<GameState>()(
   persist(
     (set) => ({
-      playerName:     null,
-      player:         null,
-      enemy:          null,
-      floor:          1,
-      highScore:      parseInt(localStorage.getItem('rogue-score') || '0'),
-      upgrades:       [],
-      gameLog:        [],
-      isGameStarted:  'START',
-      playerTurn:     true,
+      playerName:      null,
+      player:          null,
+      enemy:           null,
+      floor:           1,
+      highScore:       parseInt(localStorage.getItem('rogue-score') || '0'),
+      upgrades:        [],
+      // FIX: gameLog is NOT persisted (see partialize below) so it always
+      // starts empty — no stale log entries on page refresh
+      gameLog:         [],
+      isGameStarted:   'START',
+      playerTurn:      true,
       playerAnimation: '',
       enemyAnimation:  '',
-      pendingMove:    null,
+      pendingMove:     null,
       dungeonModifier: 'none',
 
-      setPlayerName:      (playerName) => set({ playerName }),
-      setPlayer:          (player)     => set({ player }),
-      setEnemy:           (enemy)      => set({ enemy }),
-      setFloor:           (floor)      => set({ floor }),
-      setUpgrades:        (upgrades)   => set({ upgrades }),
-      addGameLog:         (messages)   => set((state) => ({
+      setPlayerName:      (playerName)      => set({ playerName }),
+      setPlayer:          (player)          => set({ player }),
+      setEnemy:           (enemy)           => set({ enemy }),
+      setFloor:           (floor)           => set({ floor }),
+      setUpgrades:        (upgrades)        => set({ upgrades }),
+      addGameLog:         (messages)        => set((state) => ({
         gameLog: [...state.gameLog, ...messages].slice(-100),
       })),
       setIsGameStarted:   (isGameStarted)   => set({ isGameStarted }),
@@ -75,29 +78,34 @@ export const useGameStore = create<GameState>()(
       setDungeonModifier: (dungeonModifier) => set({ dungeonModifier }),
 
       resetRun: () => set({
-        player:         null,
-        enemy:          null,
-        floor:          1,
-        upgrades:       [],
-        gameLog:        [],
-        isGameStarted:  'START',
-        playerTurn:     true,
-        pendingMove:    null,
+        player:          null,
+        enemy:           null,
+        floor:           1,
+        upgrades:        [],
+        // FIX: always wipe the log on reset
+        gameLog:         [],
+        isGameStarted:   'START',
+        playerTurn:      true,
+        pendingMove:     null,
         dungeonModifier: 'none',
+        playerAnimation: '',
+        enemyAnimation:  '',
       }),
     }),
     {
       name:    'pokemon-rogue-save',
       storage: createJSONStorage(() => localStorage),
+      // FIX: Removed gameLog, playerTurn, playerAnimation, enemyAnimation, and
+      // dungeonModifier from persistence. These are transient battle state; persisting
+      // them caused stale log replays and broken battle state on page refresh.
+      // Only durable run state (player, enemy, floor, upgrades, identity) is saved.
       partialize: (state) => ({
-        player:          state.player,
-        enemy:           state.enemy,
-        floor:           state.floor,
-        gameLog:         state.gameLog,
-        isGameStarted:   state.isGameStarted,
-        dungeonModifier: state.dungeonModifier,
-        upgrades:        state.upgrades,
-        playerName:      state.playerName,
+        player:        state.player,
+        enemy:         state.enemy,
+        floor:         state.floor,
+        isGameStarted: state.isGameStarted,
+        upgrades:      state.upgrades,
+        playerName:    state.playerName,
       }),
     }
   )

@@ -36,7 +36,9 @@ export const useRewards = (onNextFloor: () => void) => {
     const actualIncrease = randomStat === 'maxHp' ? increaseAmount * 5 : increaseAmount;
 
     newStats[randomStat] += actualIncrease;
-    newStats.hp = newStats.maxHp;
+    // FIX: Do NOT set newStats.hp = newStats.maxHp here.
+    // That line caused an auto full-heal on every level-up, making Potions useless.
+    // HP only restores when the player explicitly picks a Potion from the loot overlay.
 
     return {
       player:  { ...currentStats, level: newLevel, stats: newStats, xp: overflowXp, maxXp: newMaxXp },
@@ -53,7 +55,8 @@ export const useRewards = (onNextFloor: () => void) => {
     while (!fetchedMove && attempts < 3) {
       attempts++;
       const randomMoveId  = Math.floor(Math.random() * 826) + 1;
-      const candidateMove = await fetchMoveDetails(`https://pokeapi.co/api/v2/move/${randomMoveId}`);
+      // forEnemy=false — player can receive any move including last-resort
+      const candidateMove = await fetchMoveDetails(`https://pokeapi.co/api/v2/move/${randomMoveId}`, false);
       if (candidateMove) fetchedMove = applyPPScale(candidateMove);
     }
 
@@ -110,7 +113,8 @@ export const useRewards = (onNextFloor: () => void) => {
 
       for (const moveInfo of movesToLearn) {
         if (newPlayer.moves?.some(m => m.name.toLowerCase() === moveInfo.name.replace('-', ' '))) continue;
-        const fetchedMove = await fetchMoveDetails(moveInfo.url);
+        // forEnemy=false — player learnset moves have no restrictions
+        const fetchedMove = await fetchMoveDetails(moveInfo.url, false);
         if (fetchedMove) {
           const scaledMove = applyPPScale(fetchedMove);
           if ((newPlayer.moves?.length || 0) < 4) {
@@ -130,32 +134,28 @@ export const useRewards = (onNextFloor: () => void) => {
     if (floor % 10 === 0) {
       newPlayer.moves  = newPlayer.moves?.map(m => ({ ...m, pp: m.maxPp || 20 }));
       newPlayer.status = 'normal';
-      setGameLog((prev: string[]) => [...prev, `Boss defeated! PP fully restored and status conditions cured!`].slice(-100));
+      // Boss floors do a full restore — this is intentional
+      newPlayer.stats  = { ...newPlayer.stats, hp: newPlayer.stats.maxHp };
+      setGameLog((prev: string[]) => [...prev, `Boss defeated! HP, PP, and status fully restored!`].slice(-100));
     }
 
     setPlayer(newPlayer);
 
-    // --- Loot generation ---
+    // Loot generation
     const finalLoot: Upgrade[] = [];
     const usedNames = new Set<string>();
 
     const guaranteedHeal: Upgrade = floor % 10 === 0
-      ? { id: Math.random().toString(), name: 'Super Potion', description: 'Heal 60 HP', stat: 'hp', amount: 60 }
-      : { id: Math.random().toString(), name: 'Potion',       description: 'Heal 30 HP', stat: 'hp', amount: 30 };
+      ? { id: Math.random().toString(), name: 'Super Potion', description: 'Restore 60 HP', stat: 'hp', amount: 60 }
+      : { id: Math.random().toString(), name: 'Potion',       description: 'Restore 30 HP', stat: 'hp', amount: 30 };
     finalLoot.push(guaranteedHeal);
     usedNames.add(guaranteedHeal.name);
 
     const canEquip = (currentPlayer.equipment?.length || 0) < 6;
     if (Math.random() < 0.35 && canEquip) {
       const randomItemName = ITEM_POOL[Math.floor(Math.random() * ITEM_POOL.length)];
-      const equipment = await fetchEquipmentFromPokeAPI(randomItemName) || {
-        id:            `local-${randomItemName}`,
-        name:          randomItemName.replace('-', ' ').toUpperCase(),
-        description:   'A powerful held item.',
-        spriteUrl:     'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/items/master-ball.png',
-        statModifiers: { attack: 3, defense: 3, maxHp: 8 },
-      };
-      if (!usedNames.has(equipment.name)) {
+      const equipment = await fetchEquipmentFromPokeAPI(randomItemName);
+      if (equipment && !usedNames.has(equipment.name)) {
         finalLoot.push({
           id: Math.random().toString(), name: equipment.name,
           description: equipment.description, stat: 'equipment', amount: 0, equipment,
@@ -199,7 +199,10 @@ export const useRewards = (onNextFloor: () => void) => {
         if (!prev) return null;
         const targetStat = upgrade.stat as StatKey;
         const newStats   = { ...prev.stats, [targetStat]: prev.stats[targetStat] + upgrade.amount };
-        if (targetStat === 'hp') newStats.hp = Math.min(newStats.hp, prev.stats.maxHp);
+        // FIX: Potion heals by amount, clamped to maxHp — not a flat set
+        if (targetStat === 'hp') {
+          newStats.hp = Math.min(prev.stats.hp + upgrade.amount, prev.stats.maxHp);
+        }
         return { ...prev, stats: newStats };
       });
     }

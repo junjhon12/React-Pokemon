@@ -5,7 +5,6 @@ import { type Equipment } from './equipment';
 export type StatKey = 'hp' | 'attack' | 'speed' | 'maxHp' | 'defense' | 'critChance' | 'dodge';
 export type StageStatKey = 'attack' | 'defense' | 'speed';
 
-// FIX: Exported Equipment
 export type { Equipment };
 
 export interface Pokemon {
@@ -18,12 +17,15 @@ export interface Pokemon {
   isPlayer: boolean;
   xp?: number;
   maxXp?: number;
-  status?: 'normal' | 'burn' | 'poison' | 'paralyze' | 'freeze' | 'sleep';
+  // Added 'leech-seed' as a valid status
+  status?: 'normal' | 'burn' | 'poison' | 'paralyze' | 'freeze' | 'sleep' | 'leech-seed';
   equipment?: Equipment[];
   stages?: Record<StageStatKey, number>;
-  learnset?: { 
-    level: number; 
-    name: string; 
-    url: string; 
+  learnset?: {
+    level: number;
+    name: string;
+    url: string;
   }[];
+  // Tracks which move names have been used this battle (for Last Resort validation)
+  usedMoveNames?: string[];
 }

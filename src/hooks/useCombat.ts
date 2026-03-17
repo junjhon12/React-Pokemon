@@ -16,8 +16,8 @@ const appendLog = (s: GameState, ...messages: string[]): Partial<GameState> => (
 });
 
 export const useCombat = (onEnemyDefeat: (enemy: Pokemon, player: Pokemon) => Promise<void>) => {
-  const floor     = useGameStore((state) => state.floor);
-  const highScore = useGameStore((state) => state.highScore);
+  const floor        = useGameStore((state) => state.floor);
+  const highScore    = useGameStore((state) => state.highScore);
   const setHighScore = useGameStore((state) => state.setHighScore);
 
   const patchState = (patch: Partial<GameState> | ((s: GameState) => Partial<GameState>)): void => {
@@ -49,16 +49,72 @@ export const useCombat = (onEnemyDefeat: (enemy: Pokemon, player: Pokemon) => Pr
     return { ...mon, stages: newStages };
   };
 
+  // ── Leech Seed tick ──────────────────────────────────────────────────────────
+  // Drains 1/8 max HP from the seeded Pokémon and heals the other by the same amount.
+  const applyLeechSeedTick = (
+    seededMon: Pokemon,
+    healer: Pokemon,
+    seededLabel: 'player' | 'enemy'
+  ): { seeded: Pokemon; healer: Pokemon } => {
+    const drain    = Math.max(1, Math.floor(seededMon.stats.maxHp / 8));
+    const newHp    = Math.max(0, seededMon.stats.hp - drain);
+    const healedHp = Math.min(healer.stats.maxHp, healer.stats.hp + drain);
+
+    patchState((s: GameState) => appendLog(
+      s,
+      `${seededMon.name}'s health was sapped by Leech Seed! (${drain} dmg)`,
+      `${healer.name} recovered ${drain} HP from Leech Seed!`,
+    ));
+
+    const seededOut  = { ...seededMon,  stats: { ...seededMon.stats,  hp: newHp    } };
+    const healerOut  = { ...healer,     stats: { ...healer.stats,     hp: healedHp } };
+
+    if (seededLabel === 'player') {
+      patchState({ player: seededOut, enemy: healerOut });
+    } else {
+      patchState({ enemy: seededOut, player: healerOut });
+    }
+
+    return { seeded: seededOut, healer: healerOut };
+  };
+
+  // ── Drain heal helper ────────────────────────────────────────────────────────
+  const applyDrainHeal = (attacker: Pokemon, damage: number, drainPct: number, isPlayer: boolean): Pokemon => {
+    const healAmount = Math.max(1, Math.floor(damage * drainPct / 100));
+    const newHp      = Math.min(attacker.stats.maxHp, attacker.stats.hp + healAmount);
+    const healed     = { ...attacker, stats: { ...attacker.stats, hp: newHp } };
+    patchState((s: GameState) => appendLog(s, `${attacker.name} restored ${healAmount} HP!`));
+    if (isPlayer) patchState({ player: healed });
+    else          patchState({ enemy:  healed });
+    return healed;
+  };
+
+  // ── Last Resort guard ────────────────────────────────────────────────────────
+  // Returns true if the move is allowed to be used this turn.
+  const canUseMove = (mon: Pokemon, move: Move): boolean => {
+    if (!move.isLastResort) return true;
+    // Last Resort fails unless every other known move has been used at least once
+    const otherMoves   = mon.moves.filter(m => m.name !== move.name);
+    const usedNames    = new Set(mon.usedMoveNames ?? []);
+    return otherMoves.every(m => usedNames.has(m.name));
+  };
+
+  // ── Mark a move as used (for Last Resort tracking) ───────────────────────────
+  const recordMoveUsed = (mon: Pokemon, moveName: string): Pokemon => ({
+    ...mon,
+    usedMoveNames: Array.from(new Set([...(mon.usedMoveNames ?? []), moveName])),
+  });
+
   const executeEnemyTurn = async (currentPlayer: Pokemon, currentEnemyArg: Pokemon): Promise<void> => {
     let currentEnemy = currentEnemyArg;
 
     await wait(500);
     const { dungeonModifier } = useGameStore.getState();
-    const currentFloor  = useGameStore.getState().floor;
-    const isBossFloor   = currentFloor % 10 === 0;
-    const isMiniBoss    = currentFloor % 5 === 0 && !isBossFloor;
+    const currentFloor = useGameStore.getState().floor;
+    const isBossFloor  = currentFloor % 10 === 0;
+    const isMiniBoss   = currentFloor % 5 === 0 && !isBossFloor;
 
-    // --- Freeze / Paralyze / Sleep check ---
+    // ── Status checks: freeze / paralyze / sleep ─────────────────────────────
     if (
       currentEnemy.status === 'freeze'   ||
       currentEnemy.status === 'paralyze' ||
@@ -69,15 +125,14 @@ export const useCombat = (onEnemyDefeat: (enemy: Pokemon, player: Pokemon) => Pr
       const remainsAsleep = currentEnemy.status === 'sleep'    && Math.random() >= 0.33;
 
       if (isParalyzed || remainsFrozen || remainsAsleep) {
-        const msg = isParalyzed  ? `${currentEnemy.name} is paralyzed and can't move!`
-          : remainsFrozen        ? `${currentEnemy.name} is frozen solid!`
+        const msg = isParalyzed   ? `${currentEnemy.name} is paralyzed and can't move!`
+          : remainsFrozen         ? `${currentEnemy.name} is frozen solid!`
           : `${currentEnemy.name} is fast asleep!`;
         patchState((s: GameState) => ({ ...appendLog(s, msg), playerTurn: true }));
         return;
       }
 
-      // Status wore off
-      const wokeUp   = currentEnemy.status === 'sleep';
+      const wokeUp    = currentEnemy.status === 'sleep';
       const thawedOut = currentEnemy.status === 'freeze';
       const woreOffMsg = wokeUp ? `${currentEnemy.name} woke up!` : `${currentEnemy.name} thawed out!`;
       patchState((s: GameState) => ({
@@ -85,15 +140,13 @@ export const useCombat = (onEnemyDefeat: (enemy: Pokemon, player: Pokemon) => Pr
         enemy: { ...currentEnemy, status: 'normal' },
       }));
       currentEnemy = { ...currentEnemy, status: 'normal' };
-      // Paralysis doesn't wear off on its own — only blocks the turn
       if (!wokeUp && !thawedOut) {
-        // Paralysis blocked this turn, player goes next
         patchState({ playerTurn: true });
         return;
       }
     }
 
-    // --- Burn / Poison tick ---
+    // ── Burn / Poison end-of-turn tick ────────────────────────────────────────
     if (currentEnemy.status === 'burn' || currentEnemy.status === 'poison') {
       const tickDamage = Math.max(1, Math.floor(currentEnemy.stats.maxHp * 0.0625));
       const tickedHp   = Math.max(0, currentEnemy.stats.hp - tickDamage);
@@ -108,13 +161,23 @@ export const useCombat = (onEnemyDefeat: (enemy: Pokemon, player: Pokemon) => Pr
       currentEnemy = { ...currentEnemy, stats: { ...currentEnemy.stats, hp: tickedHp } };
     }
 
-    // --- Pick move: smart for bosses and mini-bosses, random otherwise ---
+    // ── Leech Seed tick on enemy ──────────────────────────────────────────────
+    if (currentEnemy.status === 'leech-seed') {
+      const freshPlayer = useGameStore.getState().player ?? currentPlayer;
+      const result = applyLeechSeedTick(currentEnemy, freshPlayer, 'enemy');
+      currentEnemy = result.seeded;
+      if (currentEnemy.stats.hp <= 0) {
+        await onEnemyDefeat(currentEnemy, useGameStore.getState().player ?? currentPlayer);
+        return;
+      }
+    }
+
+    // ── Pick move ─────────────────────────────────────────────────────────────
     let move: Move;
     if (isBossFloor) {
       move = getSmartMove(currentEnemy, currentPlayer);
     } else if (isMiniBoss) {
-      // Mini-bosses only use the type effectiveness check, not support logic
-      const usableMoves = currentEnemy.moves.filter(m => m.pp > 0);
+      const usableMoves    = currentEnemy.moves.filter(m => m.pp > 0 && canUseMove(currentEnemy, m));
       const superEffective = usableMoves.filter(
         m => m.power > 0 && (calculateBattleHit(currentEnemy, currentPlayer, m, 'none').effectiveness > 1)
       );
@@ -124,14 +187,44 @@ export const useCombat = (onEnemyDefeat: (enemy: Pokemon, player: Pokemon) => Pr
           ? usableMoves[Math.floor(Math.random() * usableMoves.length)]
           : { name: 'Tackle', power: 40, accuracy: 100, type: 'normal', pp: 10, maxPp: 10 } as Move;
     } else {
-      move = currentEnemy.moves.length > 0
-        ? currentEnemy.moves[Math.floor(Math.random() * currentEnemy.moves.length)]
+      // FIX: Filter out Last Resort unless condition is met
+      const usableMoves = currentEnemy.moves.filter(m => m.pp > 0 && canUseMove(currentEnemy, m));
+      move = usableMoves.length > 0
+        ? usableMoves[Math.floor(Math.random() * usableMoves.length)]
         : { name: 'Tackle', power: 40, accuracy: 100, type: 'normal', pp: 10, maxPp: 10 } as Move;
     }
 
+    // Deduct PP and track move usage
+    const updatedEnemyMoves = currentEnemy.moves.map((m): Move =>
+      m.name === move.name ? { ...m, pp: Math.max(0, m.pp - 1) } : m
+    );
+    currentEnemy = recordMoveUsed({ ...currentEnemy, moves: updatedEnemyMoves }, move.name);
+    patchState({ enemy: currentEnemy });
+
     patchState((s: GameState) => appendLog(s, `${currentEnemy.name} used ${move.name}!`));
 
-    // --- Stat-change move ---
+    // ── Leech Seed move effect (applies the seed, no direct damage) ───────────
+    if (move.leechSeed) {
+      patchState({ enemyAnimation: 'animate-bounce' });
+      if (currentPlayer.status === 'normal') {
+        const seededPlayer = { ...currentPlayer, status: 'leech-seed' as const };
+        patchState((s: GameState) => ({
+          ...appendLog(s, `${currentPlayer.name} was seeded!`),
+          player: seededPlayer,
+          enemyAnimation: '',
+          playerTurn: true,
+        }));
+      } else {
+        patchState((s: GameState) => ({
+          ...appendLog(s, `${currentPlayer.name} is already affected!`),
+          enemyAnimation: '',
+          playerTurn: true,
+        }));
+      }
+      return;
+    }
+
+    // ── Stat-change move ──────────────────────────────────────────────────────
     if (move.power === 0 && move.stageChange) {
       patchState({ enemyAnimation: 'animate-bounce' });
       const targetIsPlayer = move.target === 'enemy';
@@ -146,7 +239,7 @@ export const useCombat = (onEnemyDefeat: (enemy: Pokemon, player: Pokemon) => Pr
     patchState({ enemyAnimation: 'animate-lunge-left' });
     await wait(300);
 
-    // --- Accuracy / dodge check ---
+    // ── Accuracy / dodge check ────────────────────────────────────────────────
     const dodgeChance = getEffectiveStat(currentPlayer, 'dodge', dungeonModifier);
     if (Math.random() * 100 > move.accuracy || Math.random() * 100 < dodgeChance) {
       const msg = Math.random() * 100 > move.accuracy
@@ -156,7 +249,7 @@ export const useCombat = (onEnemyDefeat: (enemy: Pokemon, player: Pokemon) => Pr
       return;
     }
 
-    // --- Damage ---
+    // ── Damage ────────────────────────────────────────────────────────────────
     const hitResult   = calculateBattleHit(currentEnemy, currentPlayer, move, dungeonModifier);
     const finalDamage = hitResult.damage;
     const remainingHp = Math.max(currentPlayer.stats.hp - finalDamage, 0);
@@ -174,7 +267,12 @@ export const useCombat = (onEnemyDefeat: (enemy: Pokemon, player: Pokemon) => Pr
       player: { ...currentPlayer, stats: { ...currentPlayer.stats, hp: remainingHp } },
     }));
 
-    // --- Status application ---
+    // ── Drain heal for enemy (e.g. Leech Life) ────────────────────────────────
+    if (move.drain && move.drain > 0 && finalDamage > 0) {
+      currentEnemy = applyDrainHeal(currentEnemy, finalDamage, move.drain, false);
+    }
+
+    // ── Status application ────────────────────────────────────────────────────
     if (move.statusEffect && move.statusEffect !== 'stunned' && currentPlayer.status === 'normal' && hitResult.effectiveness > 0) {
       if (Math.random() < 0.3) {
         const statusToApply = move.statusEffect as 'burn' | 'poison' | 'paralyze' | 'freeze' | 'sleep';
@@ -204,7 +302,13 @@ export const useCombat = (onEnemyDefeat: (enemy: Pokemon, player: Pokemon) => Pr
       return;
     }
 
-    // --- Player status check ---
+    // ── Last Resort guard (player side) ──────────────────────────────────────
+    if (!canUseMove(player, move)) {
+      patchState((s: GameState) => appendLog(s, `But ${move.name} failed! Other moves haven't been used yet.`));
+      return;
+    }
+
+    // ── Player status check ───────────────────────────────────────────────────
     if (player.status === 'paralyze' && Math.random() < 0.25) {
       patchState((s: GameState) => appendLog(s, `${player.name} is paralyzed and can't move!`));
       await executeEnemyTurn(player, enemy);
@@ -216,7 +320,6 @@ export const useCombat = (onEnemyDefeat: (enemy: Pokemon, player: Pokemon) => Pr
         await executeEnemyTurn(player, enemy);
         return;
       }
-      // Woke up — update state and continue
       patchState((s: GameState) => ({
         ...appendLog(s, `${player.name} woke up!`),
         player: { ...player, status: 'normal' },
@@ -236,13 +339,35 @@ export const useCombat = (onEnemyDefeat: (enemy: Pokemon, player: Pokemon) => Pr
 
     patchState({ playerTurn: false });
 
+    // Deduct PP and track move usage
     const updatedMoves  = player.moves.map((m): Move => m.name === move.name ? { ...m, pp: m.pp - 1 } : m);
-    const updatedPlayer = { ...player, moves: updatedMoves };
+    let updatedPlayer   = recordMoveUsed({ ...player, moves: updatedMoves }, move.name);
 
     patchState({ player: updatedPlayer, playerAnimation: 'animate-lunge-right' });
     patchState((s: GameState) => appendLog(s, `${player.name} used ${move.name}!`));
 
-    // --- Stat-change move ---
+    // ── Leech Seed (player uses it on enemy) ─────────────────────────────────
+    if (move.leechSeed) {
+      if (enemy.status === 'normal') {
+        const seededEnemy = { ...enemy, status: 'leech-seed' as const };
+        patchState((s: GameState) => ({
+          ...appendLog(s, `${enemy.name} was seeded!`),
+          enemy: seededEnemy,
+          playerAnimation: '',
+        }));
+        await wait(600);
+        await executeEnemyTurn(updatedPlayer, seededEnemy);
+      } else {
+        patchState((s: GameState) => ({
+          ...appendLog(s, `${enemy.name} is already affected!`),
+          playerAnimation: '',
+        }));
+        await executeEnemyTurn(updatedPlayer, enemy);
+      }
+      return;
+    }
+
+    // ── Stat-change move ──────────────────────────────────────────────────────
     if (move.power === 0 && move.stageChange) {
       const targetIsEnemy = move.target === 'enemy';
       const target  = targetIsEnemy ? enemy : updatedPlayer;
@@ -253,6 +378,7 @@ export const useCombat = (onEnemyDefeat: (enemy: Pokemon, player: Pokemon) => Pr
         await executeEnemyTurn(updatedPlayer, updated);
       } else {
         patchState({ player: updated });
+        updatedPlayer = updated;
         await wait(600);
         await executeEnemyTurn(updated, enemy);
       }
@@ -261,7 +387,7 @@ export const useCombat = (onEnemyDefeat: (enemy: Pokemon, player: Pokemon) => Pr
 
     await wait(300);
 
-    // --- Accuracy / dodge check ---
+    // ── Accuracy / dodge check ────────────────────────────────────────────────
     const enemyDodge = getEffectiveStat(enemy, 'dodge', dungeonModifier);
     if (Math.random() * 100 > move.accuracy || Math.random() * 100 < enemyDodge) {
       const msg = Math.random() * 100 > move.accuracy
@@ -272,9 +398,9 @@ export const useCombat = (onEnemyDefeat: (enemy: Pokemon, player: Pokemon) => Pr
       return;
     }
 
-    // --- Damage ---
-    const hitResult       = calculateBattleHit(updatedPlayer, enemy, move, dungeonModifier);
-    const finalDamage     = hitResult.damage;
+    // ── Damage ────────────────────────────────────────────────────────────────
+    const hitResult        = calculateBattleHit(updatedPlayer, enemy, move, dungeonModifier);
+    const finalDamage      = hitResult.damage;
     const remainingEnemyHp = Math.max(enemy.stats.hp - finalDamage, 0);
 
     const effectivenessMsg = hitResult.effectiveness === 0 ? " It doesn't affect them..."
@@ -291,7 +417,12 @@ export const useCombat = (onEnemyDefeat: (enemy: Pokemon, player: Pokemon) => Pr
       enemy: { ...enemy, stats: { ...enemy.stats, hp: remainingEnemyHp } },
     }));
 
-    // --- Status application ---
+    // ── Drain heal for player (e.g. Absorb, Giga Drain, Leech Life) ───────────
+    if (move.drain && move.drain > 0 && finalDamage > 0) {
+      updatedPlayer = applyDrainHeal(updatedPlayer, finalDamage, move.drain, true);
+    }
+
+    // ── Status application ────────────────────────────────────────────────────
     if (move.statusEffect && move.statusEffect !== 'stunned' && enemy.status === 'normal' && hitResult.effectiveness > 0) {
       if (Math.random() < 0.3) {
         const statusToApply = move.statusEffect as 'burn' | 'poison' | 'paralyze' | 'freeze' | 'sleep';
@@ -310,7 +441,7 @@ export const useCombat = (onEnemyDefeat: (enemy: Pokemon, player: Pokemon) => Pr
       return;
     }
 
-    // --- Burn / Poison tick on player before enemy acts ---
+    // ── Burn / Poison tick on player before enemy acts ────────────────────────
     const playerAfterMove = useGameStore.getState().player;
     if (playerAfterMove && (playerAfterMove.status === 'burn' || playerAfterMove.status === 'poison')) {
       const tickDamage = Math.max(1, Math.floor(playerAfterMove.stats.maxHp * 0.0625));
@@ -325,9 +456,21 @@ export const useCombat = (onEnemyDefeat: (enemy: Pokemon, player: Pokemon) => Pr
       }
     }
 
+    // ── Leech Seed tick on player ─────────────────────────────────────────────
+    const playerBeforeEnemyTurn = useGameStore.getState().player ?? updatedPlayer;
+    const currentEnemy          = useGameStore.getState().enemy ?? { ...enemy, stats: { ...enemy.stats, hp: remainingEnemyHp } };
+
+    if (playerBeforeEnemyTurn.status === 'leech-seed') {
+      const result = applyLeechSeedTick(playerBeforeEnemyTurn, currentEnemy, 'player');
+      if (result.seeded.stats.hp <= 0) {
+        if (floor > highScore) setHighScore(floor);
+        return;
+      }
+    }
+
     await executeEnemyTurn(
       useGameStore.getState().player ?? updatedPlayer,
-      { ...enemy, stats: { ...enemy.stats, hp: remainingEnemyHp } }
+      useGameStore.getState().enemy  ?? { ...enemy, stats: { ...enemy.stats, hp: remainingEnemyHp } }
     );
   };
 

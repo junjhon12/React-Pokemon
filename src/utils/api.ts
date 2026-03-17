@@ -1,3 +1,4 @@
+// src/utils/api.ts
 import { type Pokemon } from '../types/pokemon';
 import { type Move } from '../types/move';
 import { type Equipment } from '../types/equipment';
@@ -41,27 +42,52 @@ const TACKLE_FALLBACK: Move = {
   maxPp:    20,
 };
 
-export const fetchMoveDetails = async (url: string): Promise<Move | null> => {
+// Moves that should never appear in enemy pools
+const BANNED_ENEMY_MOVES = new Set(['last-resort', 'last resort']);
+
+export const fetchMoveDetails = async (url: string, forEnemy = false): Promise<Move | null> => {
   try {
     const response = await fetch(url);
     const data     = await response.json();
 
-    if (!data.power && data.meta?.category?.name !== 'ailment') return null;
+    const moveName: string = data.name as string;
 
-    let moveStatus: string | null = null;
-    const ailmentName = data.meta?.ailment?.name;
-    if (['burn', 'poison', 'paralysis', 'freeze'].includes(ailmentName)) {
-      moveStatus = ailmentName === 'paralysis' ? 'paralyze' : ailmentName;
+    // Ban Last Resort from enemy pools — its condition is never satisfied with small movesets
+    if (forEnemy && BANNED_ENEMY_MOVES.has(moveName.toLowerCase())) return null;
+
+    const categoryName: string = data.meta?.category?.name ?? '';
+    const ailmentName: string  = data.meta?.ailment?.name  ?? '';
+
+    const hasDamagingPower = data.power !== null && data.power !== undefined && data.power > 0;
+    const isAilmentMove    = categoryName === 'ailment';
+    const isDrainMove      = categoryName === 'damage+heal';
+    const isLeechSeed      = ailmentName === 'leech-seed';
+
+    // Discard moves that deal no damage AND have no meaningful effect we support
+    if (!hasDamagingPower && !isAilmentMove && !isLeechSeed && !isDrainMove) return null;
+
+    // Status effect mapping
+    let moveStatus: Move['statusEffect'] | undefined;
+    if (['burn', 'poison', 'paralysis', 'freeze', 'sleep'].includes(ailmentName)) {
+      moveStatus = ailmentName === 'paralysis' ? 'paralyze' : ailmentName as Move['statusEffect'];
     }
 
+    const drainPct: number = typeof data.meta?.drain === 'number' ? data.meta.drain : 0;
+
+    // FIX: Always lowercase type to match TYPE_CHART keys
+    const moveType: string = (data.type?.name ?? 'normal').toLowerCase();
+
     return {
-      name:         data.name.replace('-', ' '),
-      type:         data.type.name,
-      power:        data.power || 0,
-      accuracy:     data.accuracy || 100,
-      pp:           data.pp || 15,
-      maxPp:        data.pp || 15,
-      statusEffect: moveStatus as 'poison' | 'burn' | 'paralyze' | 'freeze' | 'stunned' | undefined,
+      name:         moveName.replace(/-/g, ' '),
+      type:         moveType,
+      power:        data.power ?? 0,
+      accuracy:     data.accuracy ?? 100,
+      pp:           data.pp ?? 15,
+      maxPp:        data.pp ?? 15,
+      statusEffect: moveStatus,
+      drain:        drainPct > 0 ? drainPct : undefined,
+      leechSeed:    isLeechSeed ? true : undefined,
+      isLastResort: moveName === 'last-resort' ? true : undefined,
     };
   } catch (e) {
     console.error('Error fetching move:', e);
@@ -80,7 +106,7 @@ export const getRandomPokemon = async (
   const normalizeStat       = (base: number) => Math.max(1, Math.round(base / 10));
   const normalizePlayerStat = (base: number) => Math.max(1, Math.round(base / 7));
 
-  const rawHp  = data.stats.find((s: PokeAPIStat) => s.stat.name === 'hp').base_stat;
+  const rawHp   = data.stats.find((s: PokeAPIStat) => s.stat.name === 'hp').base_stat;
   const hp      = isPlayer ? normalizePlayerStat(rawHp) * 8 : normalizeStat(rawHp) * 5;
   const attack  = isPlayer
     ? normalizePlayerStat(data.stats.find((s: PokeAPIStat) => s.stat.name === 'attack').base_stat)
@@ -127,11 +153,11 @@ export const getRandomPokemon = async (
     moveUrlsToFetch = recentMoves.map((m: LearnsetMove) => m.url);
   }
 
-  const movePromises = moveUrlsToFetch.map(url => fetchMoveDetails(url));
+  // FIX: Pass forEnemy so Last Resort is filtered from enemy move pools
+  const movePromises = moveUrlsToFetch.map(url => fetchMoveDetails(url, !isPlayer));
   const resolved     = await Promise.all(movePromises);
   let validMoves     = resolved.filter((m): m is Move => m !== null);
 
-  // Guarantee at least one move so the Pokémon is never completely moveless
   if (validMoves.length === 0) {
     validMoves = [{ ...TACKLE_FALLBACK }];
   }
@@ -152,34 +178,46 @@ export const getRandomPokemon = async (
     moves:   validMoves,
     learnset,
     level:   1,
-    types:   data.types.map((t: PokeAPIType) => t.type.name),
+    // FIX: Lowercase all types to match TYPE_CHART keys
+    types:   data.types.map((t: PokeAPIType) => t.type.name.toLowerCase()),
     xp:      0,
     maxXp:   50,
     status:  'normal',
+    usedMoveNames: [],
   };
 };
 
 export const fetchEquipmentFromPokeAPI = async (itemName: string): Promise<Equipment | null> => {
+  // FIX: Use correct ItemData field names: desc (not description), stats (not statModifiers)
+  const customData = CUSTOM_ITEM_DATA[itemName];
+
+  if (!customData) {
+    console.warn(`Item ${itemName} not found in custom item dictionary.`);
+    return null;
+  }
+
   try {
     const response = await fetch(`https://pokeapi.co/api/v2/item/${itemName}`);
-    const data     = await response.json();
-    const customData = CUSTOM_ITEM_DATA[itemName];
-
-    if (!customData) {
-      console.warn(`Item ${itemName} not found in custom dictionary!`);
-      return null;
-    }
+    if (!response.ok) throw new Error('Item not found');
+    const data = await response.json();
 
     return {
-      id:           `pokeapi-${data.id}`,
-      name:         customData.name,
-      description:  customData.desc,
-      spriteUrl:    data.sprites.default,
-      statModifiers: customData.stats,
+      id:            `pokeapi-${data.id}`,
+      name:          customData.name,
+      description:   customData.desc,           // ItemData uses .desc
+      spriteUrl:     data.sprites?.default
+        ?? 'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/items/poke-ball.png',
+      statModifiers: customData.stats,          // ItemData uses .stats
     };
-  } catch (error) {
-    console.error('Error fetching item from PokeAPI:', error);
-    return null;
+  } catch {
+    // Fall back to a sprite-less local entry if PokeAPI is unreachable
+    return {
+      id:            `local-${itemName}`,
+      name:          customData.name,
+      description:   customData.desc,           // ItemData uses .desc
+      spriteUrl:     'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/items/poke-ball.png',
+      statModifiers: customData.stats,          // ItemData uses .stats
+    };
   }
 };
 

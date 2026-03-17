@@ -1,4 +1,5 @@
-import { useState } from 'react';
+// src/App.tsx
+import { useState, useEffect } from 'react';
 import { StartScreen } from './components/StartScreen';
 import { LootOverlay } from './components/LootOverlay';
 import { PlayerDashboard } from './components/PlayerDashboard';
@@ -10,8 +11,56 @@ import { useGameStore } from './store/gameStore';
 import { MoveReplacementOverlay } from './components/MoveReplacementOverlay';
 import './App.css';
 
+const TUTORIAL_KEY = 'rogue-tutorial-seen';
+
+const TUTORIAL_TIPS = [
+  { icon: '⚔️', text: 'Pick a move each turn to attack. Moves glow green when super effective.' },
+  { icon: '🎒', text: 'You can hold up to 6 items at once — all active simultaneously. Stack freely.' },
+  { icon: '📜', text: 'You can know up to 4 moves. Enemies drop move scrolls you can learn or swap in.' },
+  { icon: '💊', text: 'Potions in the loot screen are NOT used automatically — pick them when you need them.' },
+  { icon: '⭐', text: 'Every 5 floors is a Mini-Boss. Every 10 floors is a Legendary Boss that fully restores your HP on defeat.' },
+];
+
+function TutorialModal({ onClose }: { onClose: () => void }) {
+  return (
+    <div className='fixed inset-0 bg-black/80 z-200 flex items-center justify-center p-4'>
+      <div className='bg-[#1a1a24] border-2 border-yellow-400 rounded-xl max-w-md w-full p-6 font-mono shadow-2xl'>
+        <h2 className='text-yellow-400 font-black text-xl tracking-widest uppercase mb-1 text-center'>
+          How to Play
+        </h2>
+        <p className='text-gray-400 text-xs text-center mb-5 uppercase tracking-widest'>
+          Quick tips before your run
+        </p>
+        <ul className='space-y-3 mb-6'>
+          {TUTORIAL_TIPS.map((tip, i) => (
+            <li key={i} className='flex gap-3 items-start text-sm text-gray-200 leading-snug'>
+              <span className='text-lg shrink-0 mt-0.5'>{tip.icon}</span>
+              <span>{tip.text}</span>
+            </li>
+          ))}
+        </ul>
+        <div className='flex flex-col gap-2'>
+          <button
+            onClick={() => { localStorage.setItem(TUTORIAL_KEY, '1'); onClose(); }}
+            className='w-full bg-yellow-500 hover:bg-yellow-400 text-black font-black py-3 rounded-lg text-sm tracking-widest uppercase cursor-pointer transition-colors'
+          >
+            Got it — start battling!
+          </button>
+          <button
+            onClick={onClose}
+            className='w-full text-gray-500 hover:text-gray-300 text-xs py-1 cursor-pointer transition-colors'
+          >
+            Show again next time
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function App() {
-  const [isLoading, setIsLoading] = useState(false);
+  const [isLoading, setIsLoading]       = useState(false);
+  const [showTutorial, setShowTutorial] = useState(false);
 
   const player          = useGameStore((state) => state.player);
   const enemy           = useGameStore((state) => state.enemy);
@@ -30,6 +79,12 @@ function App() {
     startGame, selectStarterAndStart, handleMoveClick, handleSelectUpgrade,
     handleReplaceMove, handleSkipMove, gameOver, winner,
   } = useGameEngine();
+
+  useEffect(() => {
+    if (isGameStarted === 'BATTLE' && !localStorage.getItem(TUTORIAL_KEY)) {
+      setShowTutorial(true);
+    }
+  }, [isGameStarted]);
 
   const handleSelectStarterWithLoading = async (starterId: number) => {
     setIsLoading(true);
@@ -57,6 +112,11 @@ function App() {
     resetRun();
   };
 
+  const handleResetRun = () => {
+    if (!window.confirm('Abandon this run and start over?')) return;
+    resetRun();
+  };
+
   const areaNumber  = Math.ceil(floor / 5);
   const isBossFloor = floor % 10 === 0;
   const floorLabel  = isBossFloor
@@ -68,9 +128,10 @@ function App() {
   return (
     <div className='min-h-screen w-full bg-black flex items-start md:items-center justify-center font-mono p-0 sm:p-2 md:p-4'>
 
-      {/* Global loading overlay */}
+      {showTutorial && <TutorialModal onClose={() => setShowTutorial(false)} />}
+
       {isLoading && (
-        <div className='fixed inset-0 bg-black/80 z-[100] flex flex-col items-center justify-center gap-4'>
+        <div className='fixed inset-0 bg-black/80 z-100 flex flex-col items-center justify-center gap-4'>
           <div className='w-12 h-12 border-4 border-yellow-400 border-t-transparent rounded-full animate-spin' />
           <p className='text-yellow-400 font-black text-lg tracking-widest uppercase animate-pulse'>
             Loading...
@@ -96,7 +157,23 @@ function App() {
               <h1 className='text-white font-black text-lg md:text-xl tracking-widest uppercase'>
                 {floorLabel}
               </h1>
-              <span className="text-gray-200 font-bold text-xs md:text-sm">AREA {areaNumber}</span>
+              <div className='flex items-center gap-2 md:gap-3'>
+                <span className='text-gray-200 font-bold text-xs md:text-sm'>AREA {areaNumber}</span>
+                <button
+                  onClick={() => setShowTutorial(true)}
+                  title='How to play'
+                  className='text-white/60 hover:text-white text-xs border border-white/30 hover:border-white/60 px-2 py-0.5 rounded transition-colors cursor-pointer'
+                >
+                  ?
+                </button>
+                <button
+                  onClick={handleResetRun}
+                  title='Abandon run'
+                  className='text-white/60 hover:text-red-400 text-xs border border-white/30 hover:border-red-400 px-2 py-0.5 rounded transition-colors cursor-pointer'
+                >
+                  ↩ Reset
+                </button>
+              </div>
             </div>
 
             <CombatLog gameLog={gameLog} />

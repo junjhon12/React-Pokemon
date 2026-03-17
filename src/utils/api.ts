@@ -52,7 +52,7 @@ export const fetchMoveDetails = async (url: string, forEnemy = false): Promise<M
 
     const moveName: string = data.name as string;
 
-    // Ban Last Resort from enemy pools — its condition is never satisfied with small movesets
+    // Ban Last Resort from enemy pools — its condition is never reliably satisfied
     if (forEnemy && BANNED_ENEMY_MOVES.has(moveName.toLowerCase())) return null;
 
     const categoryName: string = data.meta?.category?.name ?? '';
@@ -63,10 +63,8 @@ export const fetchMoveDetails = async (url: string, forEnemy = false): Promise<M
     const isDrainMove      = categoryName === 'damage+heal';
     const isLeechSeed      = ailmentName === 'leech-seed';
 
-    // Discard moves that deal no damage AND have no meaningful effect we support
     if (!hasDamagingPower && !isAilmentMove && !isLeechSeed && !isDrainMove) return null;
 
-    // Status effect mapping
     let moveStatus: Move['statusEffect'] | undefined;
     if (['burn', 'poison', 'paralysis', 'freeze', 'sleep'].includes(ailmentName)) {
       moveStatus = ailmentName === 'paralysis' ? 'paralyze' : ailmentName as Move['statusEffect'];
@@ -74,7 +72,7 @@ export const fetchMoveDetails = async (url: string, forEnemy = false): Promise<M
 
     const drainPct: number = typeof data.meta?.drain === 'number' ? data.meta.drain : 0;
 
-    // FIX: Always lowercase type to match TYPE_CHART keys
+    // Always lowercase so types match TYPE_CHART keys
     const moveType: string = (data.type?.name ?? 'normal').toLowerCase();
 
     return {
@@ -153,7 +151,6 @@ export const getRandomPokemon = async (
     moveUrlsToFetch = recentMoves.map((m: LearnsetMove) => m.url);
   }
 
-  // FIX: Pass forEnemy so Last Resort is filtered from enemy move pools
   const movePromises = moveUrlsToFetch.map(url => fetchMoveDetails(url, !isPlayer));
   const resolved     = await Promise.all(movePromises);
   let validMoves     = resolved.filter((m): m is Move => m !== null);
@@ -178,7 +175,7 @@ export const getRandomPokemon = async (
     moves:   validMoves,
     learnset,
     level:   1,
-    // FIX: Lowercase all types to match TYPE_CHART keys
+    // Always lowercase types to match TYPE_CHART keys
     types:   data.types.map((t: PokeAPIType) => t.type.name.toLowerCase()),
     xp:      0,
     maxXp:   50,
@@ -188,7 +185,6 @@ export const getRandomPokemon = async (
 };
 
 export const fetchEquipmentFromPokeAPI = async (itemName: string): Promise<Equipment | null> => {
-  // FIX: Use correct ItemData field names: desc (not description), stats (not statModifiers)
   const customData = CUSTOM_ITEM_DATA[itemName];
 
   if (!customData) {
@@ -204,31 +200,56 @@ export const fetchEquipmentFromPokeAPI = async (itemName: string): Promise<Equip
     return {
       id:            `pokeapi-${data.id}`,
       name:          customData.name,
-      description:   customData.desc,           // ItemData uses .desc
+      description:   customData.desc,
       spriteUrl:     data.sprites?.default
         ?? 'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/items/poke-ball.png',
-      statModifiers: customData.stats,          // ItemData uses .stats
+      statModifiers: customData.stats,
     };
   } catch {
-    // Fall back to a sprite-less local entry if PokeAPI is unreachable
     return {
       id:            `local-${itemName}`,
       name:          customData.name,
-      description:   customData.desc,           // ItemData uses .desc
+      description:   customData.desc,
       spriteUrl:     'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/items/poke-ball.png',
-      statModifiers: customData.stats,          // ItemData uses .stats
+      statModifiers: customData.stats,
     };
   }
 };
 
+// All 9 starters across Gen 1, 2, and 3.
+// cardId = TCGdex series card ID. dexId = PokeAPI national dex number.
+export const STARTER_CARDS = [
+  // Gen 1 — Base Set
+  { cardId: 'base1-44', dexId: 1,   name: 'Bulbasaur'  },
+  { cardId: 'base1-46', dexId: 4,   name: 'Charmander' },
+  { cardId: 'base1-63', dexId: 7,   name: 'Squirtle'   },
+  // Gen 2 — Neo Genesis
+  { cardId: 'neo1-53',  dexId: 152, name: 'Chikorita'  },
+  { cardId: 'neo1-56',  dexId: 155, name: 'Cyndaquil'  },
+  { cardId: 'neo1-81',  dexId: 158, name: 'Totodile'   },
+  // Gen 3 — EX Ruby & Sapphire
+  { cardId: 'ex1-76',   dexId: 252, name: 'Treecko'    },
+  { cardId: 'ex1-73',   dexId: 255, name: 'Torchic'    },
+  { cardId: 'ex1-59',   dexId: 258, name: 'Mudkip'     },
+] as const;
+
 export const fetchPokemonCard = async () => {
-  try {
-    const bulbasaur  = await tcgdex.fetch('cards', 'base1-44');
-    const charmander = await tcgdex.fetch('cards', 'base1-46');
-    const squirtle   = await tcgdex.fetch('cards', 'base1-63');
-    return [bulbasaur, charmander, squirtle].filter(Boolean);
-  } catch (error) {
-    console.error('Error fetching from TCGdex SDK:', error);
-    return [];
-  }
+  // Fetch all 9 starter cards in parallel; fall back to PokeAPI artwork per card on failure
+  const results = await Promise.all(
+    STARTER_CARDS.map(async (starter) => {
+      try {
+        const card = await tcgdex.fetch('cards', starter.cardId);
+        if (card) return { ...card, dexId: [starter.dexId] };
+      } catch {
+        // individual card failure — use artwork fallback below
+      }
+      return {
+        id:    `fallback-${starter.dexId}`,
+        name:  starter.name,
+        image: `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/${starter.dexId}`,
+        dexId: [starter.dexId],
+      };
+    })
+  );
+  return results.filter(Boolean);
 };

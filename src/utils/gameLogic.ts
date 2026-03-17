@@ -2,31 +2,47 @@
 import type { Pokemon, StatKey, StageStatKey } from '../types/pokemon';
 import { type Upgrade } from '../types/upgrade';
 import type { DungeonModifier } from '../store/gameStore';
-import { applyStatStage } from './statCalculator'; 
+import { applyStatStage } from './statCalculator';
 
 export const EVOLUTION_MAP: Record<number, number> = {
-  1: 2, 2: 3, 4: 5, 5: 6, 7: 8, 8: 9, 10: 11, 11: 12, 13: 14, 14: 15, 16: 17, 17: 18, 25: 26,           
+  // Gen 1 starters
+  1: 2,   2: 3,   // Bulbasaur line
+  4: 5,   5: 6,   // Charmander line
+  7: 8,   8: 9,   // Squirtle line
+  // Gen 1 others
+  10: 11, 11: 12, // Caterpie line
+  13: 14, 14: 15, // Weedle line
+  16: 17, 17: 18, // Pidgey line
+  25: 26,         // Pikachu -> Raichu
+  // Gen 2 starters
+  152: 153, 153: 154, // Chikorita line
+  155: 156, 156: 157, // Cyndaquil line
+  158: 159, 159: 160, // Totodile line
+  // Gen 3 starters
+  252: 253, 253: 254, // Treecko line
+  255: 256, 256: 257, // Torchic line
+  258: 259, 259: 260, // Mudkip line
 };
 
 const TYPE_CHART: Record<string, { superEffective: string[]; notVeryEffective: string[]; immune: string[] }> = {
-  normal:   { superEffective: [],                                         notVeryEffective: ['rock', 'steel'],                                      immune: ['ghost'] },
-  fire:     { superEffective: ['grass', 'ice', 'bug', 'steel'],           notVeryEffective: ['fire', 'water', 'rock', 'dragon'],                    immune: [] },
-  water:    { superEffective: ['fire', 'ground', 'rock'],                 notVeryEffective: ['water', 'grass', 'dragon'],                           immune: [] },
-  grass:    { superEffective: ['water', 'ground', 'rock'],                notVeryEffective: ['fire', 'grass', 'poison', 'flying', 'bug', 'dragon', 'steel'], immune: [] },
-  electric: { superEffective: ['water', 'flying'],                        notVeryEffective: ['grass', 'electric', 'dragon'],                        immune: ['ground'] },
-  ice:      { superEffective: ['grass', 'ground', 'flying', 'dragon'],    notVeryEffective: ['water', 'ice'],                                       immune: [] },
-  fighting: { superEffective: ['normal', 'ice', 'rock', 'dark', 'steel'], notVeryEffective: ['poison', 'bug', 'psychic', 'flying', 'fairy'],        immune: ['ghost'] },
-  poison:   { superEffective: ['grass', 'fairy'],                         notVeryEffective: ['poison', 'ground', 'rock', 'ghost'],                  immune: ['steel'] },
-  ground:   { superEffective: ['fire', 'electric', 'poison', 'rock', 'steel'], notVeryEffective: ['grass', 'bug'],                                  immune: ['flying'] },
-  flying:   { superEffective: ['grass', 'fighting', 'bug'],               notVeryEffective: ['electric', 'rock', 'steel'],                          immune: [] },
-  psychic:  { superEffective: ['fighting', 'poison'],                     notVeryEffective: ['psychic', 'steel'],                                   immune: ['dark'] },
-  bug:      { superEffective: ['grass', 'psychic', 'dark'],               notVeryEffective: ['fire', 'fighting', 'poison', 'flying', 'ghost', 'steel', 'fairy'], immune: [] },
-  rock:     { superEffective: ['fire', 'ice', 'flying', 'bug'],           notVeryEffective: ['fighting', 'ground', 'steel'],                        immune: [] },
-  ghost:    { superEffective: ['psychic', 'ghost'],                       notVeryEffective: ['dark'],                                               immune: ['normal', 'fighting'] },
-  dragon:   { superEffective: ['dragon'],                                 notVeryEffective: ['steel'],                                              immune: ['fairy'] },
-  dark:     { superEffective: ['psychic', 'ghost'],                       notVeryEffective: ['fighting', 'dark', 'fairy'],                          immune: [] },
-  steel:    { superEffective: ['ice', 'rock', 'fairy'],                   notVeryEffective: ['fire', 'water', 'electric', 'steel'],                 immune: [] },
-  fairy:    { superEffective: ['fighting', 'dragon', 'dark'],             notVeryEffective: ['fire', 'poison', 'steel'],                            immune: [] },
+  normal:   { superEffective: [],                                              notVeryEffective: ['rock', 'steel'],                                                    immune: ['ghost'] },
+  fire:     { superEffective: ['grass', 'ice', 'bug', 'steel'],               notVeryEffective: ['fire', 'water', 'rock', 'dragon'],                                  immune: [] },
+  water:    { superEffective: ['fire', 'ground', 'rock'],                     notVeryEffective: ['water', 'grass', 'dragon'],                                         immune: [] },
+  grass:    { superEffective: ['water', 'ground', 'rock'],                    notVeryEffective: ['fire', 'grass', 'poison', 'flying', 'bug', 'dragon', 'steel'],      immune: [] },
+  electric: { superEffective: ['water', 'flying'],                            notVeryEffective: ['grass', 'electric', 'dragon'],                                      immune: ['ground'] },
+  ice:      { superEffective: ['grass', 'ground', 'flying', 'dragon'],        notVeryEffective: ['water', 'ice'],                                                     immune: [] },
+  fighting: { superEffective: ['normal', 'ice', 'rock', 'dark', 'steel'],    notVeryEffective: ['poison', 'bug', 'psychic', 'flying', 'fairy'],                      immune: ['ghost'] },
+  poison:   { superEffective: ['grass', 'fairy'],                             notVeryEffective: ['poison', 'ground', 'rock', 'ghost'],                                immune: ['steel'] },
+  ground:   { superEffective: ['fire', 'electric', 'poison', 'rock', 'steel'], notVeryEffective: ['grass', 'bug'],                                                   immune: ['flying'] },
+  flying:   { superEffective: ['grass', 'fighting', 'bug'],                   notVeryEffective: ['electric', 'rock', 'steel'],                                        immune: [] },
+  psychic:  { superEffective: ['fighting', 'poison'],                         notVeryEffective: ['psychic', 'steel'],                                                 immune: ['dark'] },
+  bug:      { superEffective: ['grass', 'psychic', 'dark'],                   notVeryEffective: ['fire', 'fighting', 'poison', 'flying', 'ghost', 'steel', 'fairy'], immune: [] },
+  rock:     { superEffective: ['fire', 'ice', 'flying', 'bug'],               notVeryEffective: ['fighting', 'ground', 'steel'],                                     immune: [] },
+  ghost:    { superEffective: ['psychic', 'ghost'],                           notVeryEffective: ['dark'],                                                             immune: ['normal', 'fighting'] },
+  dragon:   { superEffective: ['dragon'],                                     notVeryEffective: ['steel'],                                                            immune: ['fairy'] },
+  dark:     { superEffective: ['psychic', 'ghost'],                           notVeryEffective: ['fighting', 'dark', 'fairy'],                                        immune: [] },
+  steel:    { superEffective: ['ice', 'rock', 'fairy'],                       notVeryEffective: ['fire', 'water', 'electric', 'steel'],                              immune: [] },
+  fairy:    { superEffective: ['fighting', 'dragon', 'dark'],                 notVeryEffective: ['fire', 'poison', 'steel'],                                          immune: [] },
 };
 
 export const getTypeEffectiveness = (moveType: string, defenderTypes: string[]): number => {
@@ -50,29 +66,29 @@ const UPGRADES: Upgrade[] = [
   { id: '5', name: 'Iron',        description: 'Increases Defense by 4',      stat: 'defense',    amount: 4  },
 ];
 
-export const getRandomUpgrades = (count: number, playerId?: number, playerStatus?: string): Upgrade[] => {
+// playerStatus param removed — status is auto-cleared after every battle,
+// so Full Heal never needs to appear as a loot reward.
+export const getRandomUpgrades = (count: number, playerId?: number): Upgrade[] => {
   const currentPool = [...UPGRADES];
 
   if (playerId && EVOLUTION_MAP[playerId]) {
     currentPool.push({ id: 'evo_stone', name: 'Evolution Stone', description: 'Evolve into your next form!', stat: 'evolve', amount: 0 });
   }
-  if (playerStatus && playerStatus !== 'normal') {
-    currentPool.push({ id: 'full_heal', name: 'Full Heal', description: `Cures your ${playerStatus.toUpperCase()} status!`, stat: 'status', amount: 0 });
-  }
+
   const shuffled = currentPool.sort(() => 0.5 - Math.random()).slice(0, count);
   return shuffled;
 };
 
 export const scaleEnemyStats = (basePokemon: Pokemon, floor: number): Pokemon => {
   const multiplier = Math.pow(1.06, floor > 1 ? floor - 1 : 0);
-  
+
   const newStats = { ...basePokemon.stats };
-  newStats.maxHp    = Math.max(1, Math.floor(newStats.maxHp    * multiplier));
-  newStats.hp       = newStats.maxHp;
-  newStats.attack   = Math.max(1, Math.floor(newStats.attack   * multiplier));
-  newStats.defense  = Math.max(1, Math.floor(newStats.defense  * multiplier));
-  newStats.speed    = Math.max(1, Math.floor(newStats.speed    * multiplier));
-  
+  newStats.maxHp   = Math.max(1, Math.floor(newStats.maxHp   * multiplier));
+  newStats.hp      = newStats.maxHp;
+  newStats.attack  = Math.max(1, Math.floor(newStats.attack  * multiplier));
+  newStats.defense = Math.max(1, Math.floor(newStats.defense * multiplier));
+  newStats.speed   = Math.max(1, Math.floor(newStats.speed   * multiplier));
+
   return { ...basePokemon, level: floor, stats: newStats };
 };
 
@@ -95,6 +111,6 @@ export const getEffectiveStat = (mon: Pokemon, stat: StatKey, modifier: DungeonM
   }
 
   if (modifier === 'thick-fog' && stat === 'dodge') finalValue += 20;
-  
+
   return finalValue;
 };

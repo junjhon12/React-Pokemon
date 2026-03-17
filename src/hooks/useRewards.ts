@@ -36,9 +36,7 @@ export const useRewards = (onNextFloor: () => void) => {
     const actualIncrease = randomStat === 'maxHp' ? increaseAmount * 5 : increaseAmount;
 
     newStats[randomStat] += actualIncrease;
-    // FIX: Do NOT set newStats.hp = newStats.maxHp here.
-    // That line caused an auto full-heal on every level-up, making Potions useless.
-    // HP only restores when the player explicitly picks a Potion from the loot overlay.
+    // Do NOT restore HP here — HP only restores via the post-battle auto-heal below.
 
     return {
       player:  { ...currentStats, level: newLevel, stats: newStats, xp: overflowXp, maxXp: newMaxXp },
@@ -55,7 +53,6 @@ export const useRewards = (onNextFloor: () => void) => {
     while (!fetchedMove && attempts < 3) {
       attempts++;
       const randomMoveId  = Math.floor(Math.random() * 826) + 1;
-      // forEnemy=false — player can receive any move including last-resort
       const candidateMove = await fetchMoveDetails(`https://pokeapi.co/api/v2/move/${randomMoveId}`, false);
       if (candidateMove) fetchedMove = applyPPScale(candidateMove);
     }
@@ -113,7 +110,6 @@ export const useRewards = (onNextFloor: () => void) => {
 
       for (const moveInfo of movesToLearn) {
         if (newPlayer.moves?.some(m => m.name.toLowerCase() === moveInfo.name.replace('-', ' '))) continue;
-        // forEnemy=false — player learnset moves have no restrictions
         const fetchedMove = await fetchMoveDetails(moveInfo.url, false);
         if (fetchedMove) {
           const scaledMove = applyPPScale(fetchedMove);
@@ -131,25 +127,21 @@ export const useRewards = (onNextFloor: () => void) => {
       setGameLog((prev: string[]) => [...prev, `You gained ${xpGain} XP.`].slice(-100));
     }
 
+    // Always fully restore HP and clear all status after every victory
+    newPlayer.stats  = { ...newPlayer.stats, hp: newPlayer.stats.maxHp };
+    newPlayer.status = 'normal';
+    setGameLog((prev: string[]) => [...prev, `${newPlayer.name} recovered fully!`].slice(-100));
+
     if (floor % 10 === 0) {
-      newPlayer.moves  = newPlayer.moves?.map(m => ({ ...m, pp: m.maxPp || 20 }));
-      newPlayer.status = 'normal';
-      // Boss floors do a full restore — this is intentional
-      newPlayer.stats  = { ...newPlayer.stats, hp: newPlayer.stats.maxHp };
-      setGameLog((prev: string[]) => [...prev, `Boss defeated! HP, PP, and status fully restored!`].slice(-100));
+      newPlayer.moves = newPlayer.moves?.map(m => ({ ...m, pp: m.maxPp || 20 }));
+      setGameLog((prev: string[]) => [...prev, `Boss defeated! PP fully restored!`].slice(-100));
     }
 
     setPlayer(newPlayer);
 
-    // Loot generation
+    // Loot: no Potion slot — 3 slots are stat upgrades / equipment / evo stone only
     const finalLoot: Upgrade[] = [];
     const usedNames = new Set<string>();
-
-    const guaranteedHeal: Upgrade = floor % 10 === 0
-      ? { id: Math.random().toString(), name: 'Super Potion', description: 'Restore 60 HP', stat: 'hp', amount: 60 }
-      : { id: Math.random().toString(), name: 'Potion',       description: 'Restore 30 HP', stat: 'hp', amount: 30 };
-    finalLoot.push(guaranteedHeal);
-    usedNames.add(guaranteedHeal.name);
 
     const canEquip = (currentPlayer.equipment?.length || 0) < 6;
     if (Math.random() < 0.35 && canEquip) {
@@ -165,9 +157,10 @@ export const useRewards = (onNextFloor: () => void) => {
     }
 
     let attempts = 0;
-    while (finalLoot.length < 3 && attempts < 10) {
+    while (finalLoot.length < 3 && attempts < 15) {
       attempts++;
-      const candidate   = getRandomUpgrades(1, currentPlayer.id, newPlayer.status)[0];
+      // No playerStatus arg — status is auto-cleared, Full Heal never appears in loot
+      const candidate   = getRandomUpgrades(1, currentPlayer.id)[0];
       const slotUpgrade = { ...candidate, id: Math.random().toString() };
       if (!usedNames.has(slotUpgrade.name)) {
         finalLoot.push(slotUpgrade);
@@ -182,10 +175,7 @@ export const useRewards = (onNextFloor: () => void) => {
     const player = useGameStore.getState().player;
     if (!player) return;
 
-    if (upgrade.stat === 'status') {
-      setPlayer({ ...player, status: 'normal' });
-      setGameLog((prev: string[]) => [...prev, `${player.name} used a Full Heal and cured its status!`].slice(-100));
-    } else if (upgrade.stat === 'equipment' && upgrade.equipment) {
+    if (upgrade.stat === 'equipment' && upgrade.equipment) {
       setPlayer({ ...player, equipment: [...(player.equipment || []), upgrade.equipment] });
       setGameLog((prev: string[]) => [...prev, `Equipped ${upgrade.equipment!.name}!`, `Stat bonuses applied dynamically.`].slice(-100));
     } else if (upgrade.stat === 'evolve') {
@@ -199,7 +189,6 @@ export const useRewards = (onNextFloor: () => void) => {
         if (!prev) return null;
         const targetStat = upgrade.stat as StatKey;
         const newStats   = { ...prev.stats, [targetStat]: prev.stats[targetStat] + upgrade.amount };
-        // FIX: Potion heals by amount, clamped to maxHp — not a flat set
         if (targetStat === 'hp') {
           newStats.hp = Math.min(prev.stats.hp + upgrade.amount, prev.stats.maxHp);
         }

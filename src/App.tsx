@@ -84,7 +84,7 @@ function App() {
 
   useEffect(() => {
     if (isGameStarted === 'BATTLE' && !localStorage.getItem(TUTORIAL_KEY)) {
-      setShowTutorial(true);
+      setTimeout(() => setShowTutorial(true), 0);
     }
   }, [isGameStarted]);
 

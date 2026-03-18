@@ -17,6 +17,118 @@ export const applyPPScale = (move: Move): Move => {
   return move;
 };
 
+// ── Move draft helpers ────────────────────────────────────────────────────────
+
+// Returns true for moves worth offering — damaging moves or high-value status moves.
+const isUsefulMove = (move: Move): boolean => {
+  if (move.power > 0) return true;               // any damaging move
+  if (move.leechSeed) return true;               // Leech Seed
+  if (move.drain && move.drain > 0) return true; // drain moves
+  if (move.stageChange) {
+    // Only offer stat-change moves that provide a meaningful boost
+    const totalChange = Object.values(move.stageChange).reduce((a, b) => a + Math.abs(b), 0);
+    return totalChange >= 2;
+  }
+  return false;
+};
+
+// Fetch move candidates from the Pokémon's own learnset (moves they haven't learned yet
+// and are available at or near the current level).
+const fetchLearnsetCandidates = async (
+  player: Pokemon,
+  floor: number
+): Promise<Move[]> => {
+  if (!player.learnset || player.learnset.length === 0) return [];
+
+  const knownNames = new Set(player.moves.map(m => m.name.toLowerCase()));
+  const maxLevel   = Math.max(floor + 5, 20); // look slightly ahead so players feel progression
+
+  const eligible = player.learnset
+    .filter(entry => entry.level <= maxLevel && !knownNames.has(entry.name.replace(/-/g, ' ')))
+    .sort((a, b) => b.level - a.level) // prefer higher-level (stronger) moves
+    .slice(0, 12); // cap fetch pool to avoid too many API calls
+
+  const fetched = await Promise.all(
+    eligible.map(entry => fetchMoveDetails(entry.url, false))
+  );
+
+  return fetched
+    .filter((m): m is Move => m !== null && isUsefulMove(m))
+    .map(m => applyPPScale(m));
+};
+
+// Fetch move candidates from a type-filtered random pool as padding when the
+// learnset doesn't have enough options.
+const fetchTypedCandidates = async (
+  playerTypes: string[],
+  knownNames: Set<string>,
+  needed: number
+): Promise<Move[]> => {
+  const results: Move[] = [];
+  let attempts = 0;
+  const maxAttempts = needed * 6; // try up to 6× harder than needed
+
+  while (results.length < needed && attempts < maxAttempts) {
+    attempts++;
+    const randomId = Math.floor(Math.random() * 400) + 1; // Gen 1-3 move range
+    try {
+      const move = await fetchMoveDetails(
+        `https://pokeapi.co/api/v2/move/${randomId}`,
+        false
+      );
+      if (
+        move &&
+        isUsefulMove(move) &&
+        !knownNames.has(move.name.toLowerCase()) &&
+        !results.some(r => r.name === move.name) &&
+        (playerTypes.includes(move.type) || move.power >= 80) // STAB or high-power coverage
+      ) {
+        results.push(applyPPScale(move));
+      }
+    } catch {
+      // ignore individual fetch failures
+    }
+  }
+  return results;
+};
+
+// Build a draft of exactly `count` distinct move choices for the player.
+const buildMoveDraft = async (player: Pokemon, floor: number, count = 3): Promise<Move[]> => {
+  const knownNames = new Set(player.moves.map(m => m.name.toLowerCase()));
+
+  // 1. Pull from learnset first (most relevant moves)
+  const learnsetPool = await fetchLearnsetCandidates(player, floor);
+
+  // Shuffle and pick up to `count` from learnset
+  const shuffled = learnsetPool.sort(() => Math.random() - 0.5);
+  const draft    = shuffled.slice(0, count);
+
+  // 2. Pad with type-filtered randoms if learnset didn't have enough
+  if (draft.length < count) {
+    const usedNames   = new Set([...knownNames, ...draft.map(m => m.name.toLowerCase())]);
+    const padded      = await fetchTypedCandidates(player.types, usedNames, count - draft.length);
+    draft.push(...padded);
+  }
+
+  // 3. Last resort: generic strong moves if still short
+  if (draft.length < count) {
+    const genericIds = [53, 87, 58, 74, 89, 94]; // Swift, Blizzard, Fire Blast, Thunder, Fire Spin, Psywave
+    for (const id of genericIds) {
+      if (draft.length >= count) break;
+      try {
+        const move = await fetchMoveDetails(`https://pokeapi.co/api/v2/move/${id}`, false);
+        if (move && !knownNames.has(move.name.toLowerCase()) && !draft.some(d => d.name === move.name)) {
+          draft.push(applyPPScale(move));
+        }
+      } catch { /* ignore */ }
+    }
+  }
+
+  return draft.slice(0, count);
+};
+
+// ── Main hook ─────────────────────────────────────────────────────────────────
+
 export const useRewards = (onNextFloor: () => void) => {
   const setPlayer   = (val: Pokemon | null | ((p: Pokemon | null) => Pokemon | null)) =>
     useGameStore.setState(typeof val === 'function' ? (s) => ({ player: val(s.player) }) : { player: val });
@@ -29,14 +141,13 @@ export const useRewards = (onNextFloor: () => void) => {
     const newLevel   = (currentStats.level || 1) + 1;
     const newMaxXp   = Math.floor((currentStats.maxXp || 100) * 1.3);
     const newStats   = { ...currentStats.stats };
-    const upgradeableStats: StatKey[] = ['maxHp', 'attack', 'defense', 'speed'];
+    const upgradeableStats: StatKey[] = ['maxHp', 'attack', 'defense', 'specialAttack', 'specialDefense', 'speed'];
 
     const randomStat     = upgradeableStats[Math.floor(Math.random() * upgradeableStats.length)];
     const increaseAmount = Math.floor(Math.random() * 2) + 1 + Math.floor(newLevel / 5);
     const actualIncrease = randomStat === 'maxHp' ? increaseAmount * 5 : increaseAmount;
 
-    newStats[randomStat] += actualIncrease;
-    // Do NOT restore HP here — HP only restores via the post-battle auto-heal below.
+    newStats[randomStat] = (newStats[randomStat] ?? 0) + actualIncrease;
 
     return {
       player:  { ...currentStats, level: newLevel, stats: newStats, xp: overflowXp, maxXp: newMaxXp },
@@ -44,54 +155,12 @@ export const useRewards = (onNextFloor: () => void) => {
     };
   }
 
-  const attemptMoveDrop = async () => {
-    if (Math.random() > 0.25) return null;
-
-    let fetchedMove = null;
-    let attempts    = 0;
-
-    while (!fetchedMove && attempts < 3) {
-      attempts++;
-      const randomMoveId  = Math.floor(Math.random() * 826) + 1;
-      const candidateMove = await fetchMoveDetails(`https://pokeapi.co/api/v2/move/${randomMoveId}`, false);
-      if (candidateMove) fetchedMove = applyPPScale(candidateMove);
-    }
-
-    if (!fetchedMove) return null;
-
-    let rarityName = 'Support';
-    if (fetchedMove.power > 100)      rarityName = 'S-Tier';
-    else if (fetchedMove.power >= 80) rarityName = 'Rare';
-    else if (fetchedMove.power >= 55) rarityName = 'Uncommon';
-    else if (fetchedMove.power > 0)   rarityName = 'Common';
-
-    setGameLog((prev: string[]) => [...prev, `An enemy dropped a random ${rarityName} move scroll!`].slice(-100));
-    return fetchedMove;
-  };
-
   const handleEnemyDefeat = async (defeatedEnemy: Pokemon, currentPlayer: Pokemon) => {
     const floor   = useGameStore.getState().floor;
     const xpGain  = Math.floor((defeatedEnemy.level || 1) * 50 * (1 + floor * 0.1));
     let newPlayer = { ...currentPlayer };
     const totalXp = (newPlayer.xp || 0) + xpGain;
     const oldLevel = newPlayer.level || 1;
-
-    if (!useGameStore.getState().pendingMove) {
-      const droppedMove = await attemptMoveDrop();
-      if (droppedMove) {
-        if (!currentPlayer.moves?.some(m => m.name.toLowerCase() === droppedMove.name.toLowerCase())) {
-          if (currentPlayer.moves && currentPlayer.moves.length < 4) {
-            const newMoves = [...currentPlayer.moves, droppedMove];
-            setGameLog((prev: string[]) => [...prev, `${currentPlayer.name} found and learned ${droppedMove.name}!`].slice(-100));
-            setPlayer({ ...currentPlayer, moves: newMoves });
-          } else {
-            useGameStore.getState().setPendingMove(droppedMove);
-          }
-        } else {
-          setGameLog((prev: string[]) => [...prev, `You found a ${droppedMove.name} scroll, but already know it.`].slice(-100));
-        }
-      }
-    }
 
     if (totalXp >= (newPlayer.maxXp || 100)) {
       const levelUpData = handleLevelUp(newPlayer, totalXp - (newPlayer.maxXp || 100));
@@ -104,22 +173,22 @@ export const useRewards = (onNextFloor: () => void) => {
         levelUpData.message,
       ].slice(-100));
 
+      // Check for learnset moves triggered by the new level (auto-learn only if
+      // the move is already in learnset AND the player has fewer than 4 moves)
       const movesToLearn = newPlayer.learnset?.filter(
         m => m.level > oldLevel && m.level <= (newPlayer.level || 1)
       ) || [];
 
       for (const moveInfo of movesToLearn) {
-        if (newPlayer.moves?.some(m => m.name.toLowerCase() === moveInfo.name.replace('-', ' '))) continue;
+        if (newPlayer.moves?.some(m => m.name.toLowerCase() === moveInfo.name.replace(/-/g, ' '))) continue;
         const fetchedMove = await fetchMoveDetails(moveInfo.url, false);
-        if (fetchedMove) {
+        if (fetchedMove && isUsefulMove(fetchedMove)) {
           const scaledMove = applyPPScale(fetchedMove);
           if ((newPlayer.moves?.length || 0) < 4) {
-            newPlayer.moves?.push(scaledMove);
+            newPlayer.moves = [...(newPlayer.moves || []), scaledMove];
             setGameLog((prev: string[]) => [...prev, `${newPlayer.name} learned ${scaledMove.name}!`].slice(-100));
-          } else {
-            useGameStore.getState().setPendingMove(scaledMove);
-            break;
           }
+          // If already at 4 moves the draft will handle it below
         }
       }
     } else {
@@ -127,7 +196,7 @@ export const useRewards = (onNextFloor: () => void) => {
       setGameLog((prev: string[]) => [...prev, `You gained ${xpGain} XP.`].slice(-100));
     }
 
-    // Always fully restore HP and clear all status after every victory
+    // Full heal and status clear after every victory
     newPlayer.stats  = { ...newPlayer.stats, hp: newPlayer.stats.maxHp };
     newPlayer.status = 'normal';
     setGameLog((prev: string[]) => [...prev, `${newPlayer.name} recovered fully!`].slice(-100));
@@ -139,7 +208,49 @@ export const useRewards = (onNextFloor: () => void) => {
 
     setPlayer(newPlayer);
 
-    // Loot: no Potion slot — 3 slots are stat upgrades / equipment / evo stone only
+    // ── Build move draft ──────────────────────────────────────────────────────
+    // Always offer 3 move choices after every battle so the player actively
+    // builds their moveset rather than receiving random drops passively.
+    setGameLog((prev: string[]) => [...prev, `Choose a new move to learn...`].slice(-100));
+    const draft = await buildMoveDraft(newPlayer, floor, 3);
+    if (draft.length > 0) {
+      useGameStore.getState().setPendingMoveChoices(draft);
+    } else {
+      // If we genuinely couldn't build any draft (network failure, etc.) skip
+      setGameLog((prev: string[]) => [...prev, `No new moves available — moving on.`].slice(-100));
+      buildLoot(currentPlayer, newPlayer, floor);
+    }
+  };
+
+  // Called after the player picks a move (or skips) from the draft
+  const handlePickMove = (chosenMove: Move | null) => {
+    const { player, setPendingMoveChoices, setPendingMove } = useGameStore.getState();
+    if (!player) return;
+
+    setPendingMoveChoices([]);
+
+    if (!chosenMove) {
+      setGameLog((prev) => [...prev, `${player.name} passed on learning a new move.`].slice(-100));
+      buildLoot(player, player, useGameStore.getState().floor);
+      return;
+    }
+
+    if ((player.moves?.length || 0) < 4) {
+      // Slot available — learn immediately
+      const newMoves = [...(player.moves || []), chosenMove];
+      const updated  = { ...player, moves: newMoves };
+      setPlayer(updated);
+      setGameLog((prev) => [...prev, `${player.name} learned ${chosenMove.name}!`].slice(-100));
+      buildLoot(updated, updated, useGameStore.getState().floor);
+    } else {
+      // No slot — trigger the "which move to forget" overlay
+      setPendingMove(chosenMove);
+      // Loot is built after the replace/skip is resolved
+    }
+  };
+
+  // Builds and sets the loot pool (stat upgrades / equipment / evo stone)
+  const buildLoot = async (currentPlayer: Pokemon, newPlayer: Pokemon, floor: number) => {
     const finalLoot: Upgrade[] = [];
     const usedNames = new Set<string>();
 
@@ -159,7 +270,6 @@ export const useRewards = (onNextFloor: () => void) => {
     let attempts = 0;
     while (finalLoot.length < 3 && attempts < 15) {
       attempts++;
-      // No playerStatus arg — status is auto-cleared, Full Heal never appears in loot
       const candidate   = getRandomUpgrades(1, currentPlayer.id)[0];
       const slotUpgrade = { ...candidate, id: Math.random().toString() };
       if (!usedNames.has(slotUpgrade.name)) {
@@ -188,7 +298,7 @@ export const useRewards = (onNextFloor: () => void) => {
       setPlayer((prev: Pokemon | null) => {
         if (!prev) return null;
         const targetStat = upgrade.stat as StatKey;
-        const newStats   = { ...prev.stats, [targetStat]: prev.stats[targetStat] + upgrade.amount };
+        const newStats   = { ...prev.stats, [targetStat]: (prev.stats[targetStat] ?? 0) + upgrade.amount };
         if (targetStat === 'hp') {
           newStats.hp = Math.min(prev.stats.hp + upgrade.amount, prev.stats.maxHp);
         }
@@ -205,9 +315,12 @@ export const useRewards = (onNextFloor: () => void) => {
     const newMoves      = [...(player.moves || [])];
     const oldMoveName   = newMoves[moveIndex].name;
     newMoves[moveIndex] = pendingMove;
-    setPlayer({ ...player, moves: newMoves });
+    const updated       = { ...player, moves: newMoves };
+    setPlayer(updated);
     setGameLog((prev) => [...prev, `1, 2, and... Poof!`, `${player.name} forgot ${oldMoveName} and learned ${pendingMove.name}!`].slice(-100));
     setPendingMove(null);
+    // Now build loot since the move slot decision is resolved
+    buildLoot(updated, updated, useGameStore.getState().floor);
   };
 
   const handleSkipMove = () => {
@@ -215,7 +328,8 @@ export const useRewards = (onNextFloor: () => void) => {
     if (!player || !pendingMove) return;
     setGameLog((prev) => [...prev, `${player.name} gave up on learning ${pendingMove.name}.`].slice(-100));
     setPendingMove(null);
+    buildLoot(player, player, useGameStore.getState().floor);
   };
 
-  return { handleEnemyDefeat, handleSelectUpgrade, handleReplaceMove, handleSkipMove };
+  return { handleEnemyDefeat, handlePickMove, handleSelectUpgrade, handleReplaceMove, handleSkipMove };
 };

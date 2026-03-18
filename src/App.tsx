@@ -5,6 +5,7 @@ import { LootOverlay } from './components/LootOverlay';
 import { PlayerDashboard } from './components/PlayerDashboard';
 import { BattleArena } from './components/BattleArena';
 import { CombatLog } from './components/CombatLog';
+import { MoveDraftOverlay } from './components/MoveDraftOverlay';
 import { StarterSelection } from './playerPokemonSelection';
 import { useGameEngine } from './hooks/useGameEngine';
 import { useGameStore } from './store/gameStore';
@@ -15,9 +16,9 @@ const TUTORIAL_KEY = 'rogue-tutorial-seen';
 
 const TUTORIAL_TIPS = [
   { icon: '⚔️', text: 'Pick a move each turn. Moves glow green when super effective. ⚔ = physical, ✦ = special.' },
-  { icon: '💚', text: 'You fully heal and cure all status after every battle — no potions needed.' },
+  { icon: '💚', text: 'You fully heal and cure all status after every battle automatically.' },
+  { icon: '📜', text: 'After every battle you choose 1 of 3 moves to learn — or skip. Build your moveset deliberately.' },
   { icon: '🎒', text: 'You can hold up to 6 items at once — all active simultaneously. Stack freely.' },
-  { icon: '📜', text: 'You can know up to 4 moves. Enemies drop move scrolls you can learn or swap in.' },
   { icon: '⭐', text: 'Every 5 floors is a Mini-Boss. Every 10 floors is a Legendary Boss that also restores your PP.' },
 ];
 
@@ -62,22 +63,23 @@ function App() {
   const [isLoading, setIsLoading]       = useState(false);
   const [showTutorial, setShowTutorial] = useState(false);
 
-  const player          = useGameStore((state) => state.player);
-  const enemy           = useGameStore((state) => state.enemy);
-  const gameLog         = useGameStore((state) => state.gameLog);
-  const floor           = useGameStore((state) => state.floor);
-  const upgrades        = useGameStore((state) => state.upgrades);
-  const playerAnimation = useGameStore((state) => state.playerAnimation);
-  const enemyAnimation  = useGameStore((state) => state.enemyAnimation);
-  const isGameStarted   = useGameStore((state) => state.isGameStarted);
-  const highScore       = useGameStore((state) => state.highScore);
-  const pendingMove     = useGameStore((state) => state.pendingMove);
-  const dungeonModifier = useGameStore((state) => state.dungeonModifier);
-  const resetRun        = useGameStore((state) => state.resetRun);
+  const player            = useGameStore((state) => state.player);
+  const enemy             = useGameStore((state) => state.enemy);
+  const gameLog           = useGameStore((state) => state.gameLog);
+  const floor             = useGameStore((state) => state.floor);
+  const upgrades          = useGameStore((state) => state.upgrades);
+  const playerAnimation   = useGameStore((state) => state.playerAnimation);
+  const enemyAnimation    = useGameStore((state) => state.enemyAnimation);
+  const isGameStarted     = useGameStore((state) => state.isGameStarted);
+  const highScore         = useGameStore((state) => state.highScore);
+  const pendingMove       = useGameStore((state) => state.pendingMove);
+  const pendingMoveChoices = useGameStore((state) => state.pendingMoveChoices);
+  const dungeonModifier   = useGameStore((state) => state.dungeonModifier);
+  const resetRun          = useGameStore((state) => state.resetRun);
 
   const {
-    startGame, selectStarterAndStart, handleMoveClick, handleSelectUpgrade,
-    handleReplaceMove, handleSkipMove, gameOver, winner,
+    startGame, selectStarterAndStart, handleMoveClick, handlePickMove,
+    handleSelectUpgrade, handleReplaceMove, handleSkipMove, gameOver, winner,
   } = useGameEngine();
 
   useEffect(() => {
@@ -179,6 +181,12 @@ function App() {
             <CombatLog gameLog={gameLog} />
 
             <div className='order-2 md:order-3 w-full h-[50vh] md:h-auto md:flex-1 relative bg-[#1a1a24] overflow-hidden'>
+
+              {/* Move draft — shown first after battle, before loot */}
+              {pendingMoveChoices.length > 0 && (
+                <MoveDraftOverlay handlePickMove={handlePickMove} />
+              )}
+
               <LootOverlay
                 upgrades={upgrades}
                 handleSelectUpgrade={handleSelectUpgradeWithLoading}

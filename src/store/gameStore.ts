@@ -19,7 +19,10 @@ export interface GameState {
   playerTurn: boolean;
   playerAnimation: string;
   enemyAnimation: string;
+  // Single pending move (for the "which move to forget" overlay)
   pendingMove: Move | null;
+  // Three move choices for the post-battle draft picker
+  pendingMoveChoices: Move[];
   dungeonModifier: DungeonModifier;
 
   setPlayerName: (name: string | null) => void;
@@ -34,13 +37,12 @@ export interface GameState {
   setEnemyAnimation: (anim: string) => void;
   setHighScore: (score: number) => void;
   setPendingMove: (move: Move | null) => void;
+  setPendingMoveChoices: (moves: Move[]) => void;
   setDungeonModifier: (mod: DungeonModifier) => void;
 
   resetRun: () => void;
 }
 
-// Backfills missing specialAttack / specialDefense on a saved Pokemon so that
-// stale localStorage state doesn't produce NaN in the stats panel.
 const migratePokemon = (mon: Pokemon | null): Pokemon | null => {
   if (!mon) return null;
   const stats = { ...mon.stats };
@@ -52,51 +54,54 @@ const migratePokemon = (mon: Pokemon | null): Pokemon | null => {
 export const useGameStore = create<GameState>()(
   persist(
     (set) => ({
-      playerName:      null,
-      player:          null,
-      enemy:           null,
-      floor:           1,
-      highScore:       parseInt(localStorage.getItem('rogue-score') || '0'),
-      upgrades:        [],
-      gameLog:         [],
-      isGameStarted:   'START',
-      playerTurn:      true,
-      playerAnimation: '',
-      enemyAnimation:  '',
-      pendingMove:     null,
-      dungeonModifier: 'none',
+      playerName:         null,
+      player:             null,
+      enemy:              null,
+      floor:              1,
+      highScore:          parseInt(localStorage.getItem('rogue-score') || '0'),
+      upgrades:           [],
+      gameLog:            [],
+      isGameStarted:      'START',
+      playerTurn:         true,
+      playerAnimation:    '',
+      enemyAnimation:     '',
+      pendingMove:        null,
+      pendingMoveChoices: [],
+      dungeonModifier:    'none',
 
-      setPlayerName:      (playerName)      => set({ playerName }),
-      setPlayer:          (player)          => set({ player }),
-      setEnemy:           (enemy)           => set({ enemy }),
-      setFloor:           (floor)           => set({ floor }),
-      setUpgrades:        (upgrades)        => set({ upgrades }),
-      addGameLog:         (messages)        => set((state) => ({
+      setPlayerName:          (playerName)          => set({ playerName }),
+      setPlayer:              (player)              => set({ player }),
+      setEnemy:               (enemy)               => set({ enemy }),
+      setFloor:               (floor)               => set({ floor }),
+      setUpgrades:            (upgrades)            => set({ upgrades }),
+      addGameLog:             (messages)            => set((state) => ({
         gameLog: [...state.gameLog, ...messages].slice(-100),
       })),
-      setIsGameStarted:   (isGameStarted)   => set({ isGameStarted }),
-      setPlayerTurn:      (playerTurn)      => set({ playerTurn }),
-      setPlayerAnimation: (playerAnimation) => set({ playerAnimation }),
-      setEnemyAnimation:  (enemyAnimation)  => set({ enemyAnimation }),
+      setIsGameStarted:       (isGameStarted)       => set({ isGameStarted }),
+      setPlayerTurn:          (playerTurn)          => set({ playerTurn }),
+      setPlayerAnimation:     (playerAnimation)     => set({ playerAnimation }),
+      setEnemyAnimation:      (enemyAnimation)      => set({ enemyAnimation }),
       setHighScore: (score) => {
         localStorage.setItem('rogue-score', score.toString());
         set({ highScore: score });
       },
-      setPendingMove:     (pendingMove)     => set({ pendingMove }),
-      setDungeonModifier: (dungeonModifier) => set({ dungeonModifier }),
+      setPendingMove:         (pendingMove)         => set({ pendingMove }),
+      setPendingMoveChoices:  (pendingMoveChoices)  => set({ pendingMoveChoices }),
+      setDungeonModifier:     (dungeonModifier)     => set({ dungeonModifier }),
 
       resetRun: () => set({
-        player:          null,
-        enemy:           null,
-        floor:           1,
-        upgrades:        [],
-        gameLog:         [],
-        isGameStarted:   'START',
-        playerTurn:      true,
-        pendingMove:     null,
-        dungeonModifier: 'none',
-        playerAnimation: '',
-        enemyAnimation:  '',
+        player:             null,
+        enemy:              null,
+        floor:              1,
+        upgrades:           [],
+        gameLog:            [],
+        isGameStarted:      'START',
+        playerTurn:         true,
+        pendingMove:        null,
+        pendingMoveChoices: [],
+        dungeonModifier:    'none',
+        playerAnimation:    '',
+        enemyAnimation:     '',
       }),
     }),
     {
@@ -110,8 +115,6 @@ export const useGameStore = create<GameState>()(
         upgrades:      state.upgrades,
         playerName:    state.playerName,
       }),
-      // Migrate saved state: backfill specialAttack/specialDefense if missing.
-      // Also bumps version so any truly incompatible old saves are wiped cleanly.
       version: 2,
       migrate: (persistedState, version) => {
         const state = persistedState as Partial<GameState>;

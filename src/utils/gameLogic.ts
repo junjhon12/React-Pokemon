@@ -52,8 +52,8 @@ export const getTypeEffectiveness = (moveType: string, defenderTypes: string[]):
   let multiplier = 1;
   for (const defType of defenderTypes) {
     if (chart.immune.includes(defType)) return 0;
-    if (chart.superEffective.includes(defType)) multiplier *= 2;
-    if (chart.notVeryEffective.includes(defType)) multiplier *= 0.5;
+    if (chart.superEffective.includes(defType)) multiplier = Math.max(multiplier, 2);
+    if (chart.notVeryEffective.includes(defType)) multiplier = Math.min(multiplier, 0.5);
   }
   return multiplier;
 };

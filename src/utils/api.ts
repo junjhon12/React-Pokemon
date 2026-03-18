@@ -34,15 +34,15 @@ interface LearnsetMove {
 }
 
 const TACKLE_FALLBACK: Move = {
-  name:     'Tackle',
-  type:     'normal',
-  power:    40,
-  accuracy: 100,
-  pp:       20,
-  maxPp:    20,
+  name:        'Tackle',
+  type:        'normal',
+  power:       40,
+  accuracy:    100,
+  pp:          20,
+  maxPp:       20,
+  damageClass: 'physical',
 };
 
-// Moves that should never appear in enemy pools
 const BANNED_ENEMY_MOVES = new Set(['last-resort', 'last resort']);
 
 export const fetchMoveDetails = async (url: string, forEnemy = false): Promise<Move | null> => {
@@ -52,11 +52,12 @@ export const fetchMoveDetails = async (url: string, forEnemy = false): Promise<M
 
     const moveName: string = data.name as string;
 
-    // Ban Last Resort from enemy pools — its condition is never reliably satisfied
     if (forEnemy && BANNED_ENEMY_MOVES.has(moveName.toLowerCase())) return null;
 
     const categoryName: string = data.meta?.category?.name ?? '';
     const ailmentName: string  = data.meta?.ailment?.name  ?? '';
+    const damageClass: Move['damageClass'] =
+      (data.damage_class?.name as Move['damageClass']) ?? 'physical';
 
     const hasDamagingPower = data.power !== null && data.power !== undefined && data.power > 0;
     const isAilmentMove    = categoryName === 'ailment';
@@ -71,8 +72,6 @@ export const fetchMoveDetails = async (url: string, forEnemy = false): Promise<M
     }
 
     const drainPct: number = typeof data.meta?.drain === 'number' ? data.meta.drain : 0;
-
-    // Always lowercase so types match TYPE_CHART keys
     const moveType: string = (data.type?.name ?? 'normal').toLowerCase();
 
     return {
@@ -82,6 +81,7 @@ export const fetchMoveDetails = async (url: string, forEnemy = false): Promise<M
       accuracy:     data.accuracy ?? 100,
       pp:           data.pp ?? 15,
       maxPp:        data.pp ?? 15,
+      damageClass,
       statusEffect: moveStatus,
       drain:        drainPct > 0 ? drainPct : undefined,
       leechSeed:    isLeechSeed ? true : undefined,
@@ -104,17 +104,19 @@ export const getRandomPokemon = async (
   const normalizeStat       = (base: number) => Math.max(1, Math.round(base / 10));
   const normalizePlayerStat = (base: number) => Math.max(1, Math.round(base / 7));
 
-  const rawHp   = data.stats.find((s: PokeAPIStat) => s.stat.name === 'hp').base_stat;
-  const hp      = isPlayer ? normalizePlayerStat(rawHp) * 8 : normalizeStat(rawHp) * 5;
-  const attack  = isPlayer
-    ? normalizePlayerStat(data.stats.find((s: PokeAPIStat) => s.stat.name === 'attack').base_stat)
-    : normalizeStat(data.stats.find((s: PokeAPIStat) => s.stat.name === 'attack').base_stat);
-  const defense = isPlayer
-    ? normalizePlayerStat(data.stats.find((s: PokeAPIStat) => s.stat.name === 'defense').base_stat)
-    : normalizeStat(data.stats.find((s: PokeAPIStat) => s.stat.name === 'defense').base_stat);
-  const speed   = isPlayer
-    ? normalizePlayerStat(data.stats.find((s: PokeAPIStat) => s.stat.name === 'speed').base_stat)
-    : normalizeStat(data.stats.find((s: PokeAPIStat) => s.stat.name === 'speed').base_stat);
+  const getStat = (name: string) =>
+    data.stats.find((s: PokeAPIStat) => s.stat.name === name)?.base_stat ?? 50;
+
+  const rawHp = getStat('hp');
+  const hp    = isPlayer ? normalizePlayerStat(rawHp) * 8 : normalizeStat(rawHp) * 5;
+
+  const norm = isPlayer ? normalizePlayerStat : normalizeStat;
+
+  const attack         = norm(getStat('attack'));
+  const defense        = norm(getStat('defense'));
+  const specialAttack  = norm(getStat('special-attack'));
+  const specialDefense = norm(getStat('special-defense'));
+  const speed          = norm(getStat('speed'));
 
   const levelUpMoves = data.moves.map((m: PokeAPIMoveEntry) => {
     const levelDetail = m.version_group_details.find(
@@ -141,7 +143,11 @@ export const getRandomPokemon = async (
   let moveUrlsToFetch: string[] = [];
 
   if (isPlayer) {
-    moveUrlsToFetch = learnset.slice(0, 3).map((m: LearnsetMove) => m.url);
+    // Prefer moves learned at levels 1-7 (starter's actual starting moves).
+    // Falls back to earliest moves in full learnset if window is too narrow.
+    const earlyMoves   = learnset.filter(m => m.level >= 1 && m.level <= 7);
+    const startingPool = earlyMoves.length >= 2 ? earlyMoves : learnset;
+    moveUrlsToFetch    = startingPool.slice(0, 4).map(m => m.url);
   } else {
     const availableMoves = learnset.filter((m: LearnsetMove) => m.level <= targetLevel);
     const recentMoves    = availableMoves.slice(-4);
@@ -164,29 +170,29 @@ export const getRandomPokemon = async (
     name: data.name.charAt(0).toUpperCase() + data.name.slice(1),
     stats: {
       hp,
-      maxHp:      hp,
+      maxHp:          hp,
       attack,
       defense,
+      specialAttack,
+      specialDefense,
       speed,
-      critChance: 5,
-      dodge:      0,
+      critChance:     5,
+      dodge:          0,
     },
     isPlayer,
-    moves:   validMoves,
+    moves:         validMoves,
     learnset,
-    level:   1,
-    // Always lowercase types to match TYPE_CHART keys
-    types:   data.types.map((t: PokeAPIType) => t.type.name.toLowerCase()),
-    xp:      0,
-    maxXp:   50,
-    status:  'normal',
+    level:         1,
+    types:         data.types.map((t: PokeAPIType) => t.type.name.toLowerCase()),
+    xp:            0,
+    maxXp:         50,
+    status:        'normal',
     usedMoveNames: [],
   };
 };
 
 export const fetchEquipmentFromPokeAPI = async (itemName: string): Promise<Equipment | null> => {
   const customData = CUSTOM_ITEM_DATA[itemName];
-
   if (!customData) {
     console.warn(`Item ${itemName} not found in custom item dictionary.`);
     return null;
@@ -216,32 +222,26 @@ export const fetchEquipmentFromPokeAPI = async (itemName: string): Promise<Equip
   }
 };
 
-// All 9 starters across Gen 1, 2, and 3.
-// cardId = TCGdex series card ID. dexId = PokeAPI national dex number.
 export const STARTER_CARDS = [
-  // Gen 1 — Base Set
   { cardId: 'base1-44', dexId: 1,   name: 'Bulbasaur'  },
   { cardId: 'base1-46', dexId: 4,   name: 'Charmander' },
   { cardId: 'base1-63', dexId: 7,   name: 'Squirtle'   },
-  // Gen 2 — Neo Genesis
   { cardId: 'neo1-53',  dexId: 152, name: 'Chikorita'  },
   { cardId: 'neo1-56',  dexId: 155, name: 'Cyndaquil'  },
   { cardId: 'neo1-81',  dexId: 158, name: 'Totodile'   },
-  // Gen 3 — EX Ruby & Sapphire
   { cardId: 'ex1-76',   dexId: 252, name: 'Treecko'    },
   { cardId: 'ex1-73',   dexId: 255, name: 'Torchic'    },
   { cardId: 'ex1-59',   dexId: 258, name: 'Mudkip'     },
 ] as const;
 
 export const fetchPokemonCard = async () => {
-  // Fetch all 9 starter cards in parallel; fall back to PokeAPI artwork per card on failure
   const results = await Promise.all(
     STARTER_CARDS.map(async (starter) => {
       try {
         const card = await tcgdex.fetch('cards', starter.cardId);
         if (card) return { ...card, dexId: [starter.dexId] };
       } catch {
-        // individual card failure — use artwork fallback below
+        // individual card failure — fall through to artwork fallback
       }
       return {
         id:    `fallback-${starter.dexId}`,

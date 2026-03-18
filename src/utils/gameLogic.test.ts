@@ -4,48 +4,39 @@ import type { Pokemon, Equipment } from '../types/pokemon';
 
 describe('getTypeEffectiveness', () => {
   it('should return 2 for super effective moves', () => {
-    const multiplier = getTypeEffectiveness('fire', ['grass']);
-    expect(multiplier).toBe(2);
+    expect(getTypeEffectiveness('fire', ['grass'])).toBe(2);
   });
 
   it('should return 1 for neutral moves', () => {
-    const multiplier = getTypeEffectiveness('normal', ['grass']);
-    expect(multiplier).toBe(1);
+    expect(getTypeEffectiveness('normal', ['grass'])).toBe(1);
   });
 
   it('should return 0.5 for not very effective moves', () => {
-    const multiplier = getTypeEffectiveness('fire', ['water']);
-    expect(multiplier).toBe(0.5);
+    expect(getTypeEffectiveness('fire', ['water'])).toBe(0.5);
   });
 
   it('should return 0 for immune matchups', () => {
-    const multiplier = getTypeEffectiveness('normal', ['ghost']);
-    expect(multiplier).toBe(0);
+    expect(getTypeEffectiveness('normal', ['ghost'])).toBe(0);
   });
 
   it('should return 4 for dual-type double weakness', () => {
-    const multiplier = getTypeEffectiveness('ground', ['fire', 'rock']);
-    expect(multiplier).toBe(4);
+    expect(getTypeEffectiveness('ground', ['fire', 'rock'])).toBe(4);
   });
 
   it('should return 2 if the defender has dual types and is weak to one', () => {
-    const multiplier = getTypeEffectiveness('ice', ['dragon', 'flying']);
-    expect(multiplier).toBe(2);
+    expect(getTypeEffectiveness('ice', ['dragon', 'flying'])).toBe(2);
   });
 
   it('should return 0.5 for dual types where one resists', () => {
-    const multiplier = getTypeEffectiveness('water', ['water', 'grass']);
-    expect(multiplier).toBe(0.25);
+    expect(getTypeEffectiveness('water', ['water', 'grass'])).toBe(0.25);
   });
 
   it('should return 0 if either defender type is immune', () => {
-    const multiplier = getTypeEffectiveness('electric', ['ground', 'flying']);
-    expect(multiplier).toBe(0);
+    expect(getTypeEffectiveness('electric', ['ground', 'flying'])).toBe(0);
   });
 
   it('should return 1 for unknown or undefined move types', () => {
-    const multiplier = getTypeEffectiveness('light', ['dark']);
-    expect(multiplier).toBe(1);
+    expect(getTypeEffectiveness('light', ['dark'])).toBe(1);
   });
 });
 
@@ -56,7 +47,10 @@ describe('getEffectiveStat', () => {
     isPlayer: true,
     types: ['grass', 'poison'],
     stats: {
-      hp: 45, maxHp: 45, attack: 49, defense: 49, speed: 45, critChance: 5, dodge: 0,
+      hp: 45, maxHp: 45,
+      attack: 49, defense: 49,
+      specialAttack: 65, specialDefense: 65,
+      speed: 45, critChance: 5, dodge: 0,
     },
     equipment: [],
     level: 0,
@@ -102,6 +96,10 @@ describe('getEffectiveStat', () => {
     const undefinedEquipMon = { ...mockPokemon };
     delete undefinedEquipMon.equipment;
     expect(getEffectiveStat(undefinedEquipMon, 'maxHp')).toBe(45);
+  });
+
+  it('should return base specialAttack stat', () => {
+    expect(getEffectiveStat(mockPokemon, 'specialAttack')).toBe(65);
   });
 
   it('should return 1 for neutral moves', () => {

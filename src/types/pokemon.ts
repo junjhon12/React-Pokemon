@@ -1,4 +1,3 @@
-// src/types/pokemon.ts
 import { type Move } from './move';
 import { type Equipment } from './equipment';
 
@@ -25,10 +24,7 @@ export interface Pokemon {
   status?: 'normal' | 'burn' | 'poison' | 'paralyze' | 'freeze' | 'sleep' | 'leech-seed';
   equipment?: Equipment[];
   stages?: Record<StageStatKey, number>;
-  learnset?: {
-    level: number;
-    name: string;
-    url: string;
-  }[];
+  learnset?: { level: number; name: string; url: string }[];
+  // Tracks move names used this battle — needed to validate Last Resort.
   usedMoveNames?: string[];
 }

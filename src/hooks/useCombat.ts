@@ -1,4 +1,3 @@
-// src/hooks/useCombat.ts
 import { type Pokemon, type StageStatKey } from '../types/pokemon';
 import { type Move } from '../types/move';
 import { getEffectiveStat } from '../utils/gameLogic';
@@ -6,8 +5,7 @@ import { calculateBattleHit } from '../utils/battleCalculators';
 import { getSmartMove } from '../utils/aiLogic';
 import { useGameStore, type GameState } from '../store/gameStore';
 
-const wait = (ms: number): Promise<void> =>
-  new Promise((resolve) => setTimeout(resolve, ms));
+const wait = (ms: number): Promise<void> => new Promise(resolve => setTimeout(resolve, ms));
 
 const MAX_LOG_ENTRIES = 100;
 
@@ -15,7 +13,6 @@ const appendLog = (s: GameState, ...messages: string[]): Partial<GameState> => (
   gameLog: [...s.gameLog, ...messages].slice(-MAX_LOG_ENTRIES),
 });
 
-// Shared fallback — defined once so every reference is type-safe
 const TACKLE_FALLBACK: Move = {
   name: 'Tackle', power: 40, accuracy: 100, type: 'normal',
   pp: 10, maxPp: 10, damageClass: 'physical',
@@ -43,21 +40,18 @@ export const useCombat = (onEnemyDefeat: (enemy: Pokemon, player: Pokemon) => Pr
     Object.entries(stageChange).forEach(([stat, change]) => {
       if (stat in newStages) {
         const key     = stat as StageStatKey;
-        const current = newStages[key];
-        const updated = Math.max(-6, Math.min(6, current + change));
+        const updated = Math.max(-6, Math.min(6, newStages[key] + change));
         newStages[key] = updated;
         if (change > 0) logMsgs.push(`${mon.name}'s ${stat} rose!`);
         else if (change < 0) logMsgs.push(`${mon.name}'s ${stat} fell!`);
       }
     });
 
-    if (logMsgs.length > 0) {
-      patchState((s: GameState) => appendLog(s, ...logMsgs));
-    }
+    if (logMsgs.length > 0) patchState((s: GameState) => appendLog(s, ...logMsgs));
     return { ...mon, stages: newStages };
   };
 
-  // ── Leech Seed tick ──────────────────────────────────────────────────────────
+  // Drains 1/8 of the seeded Pokémon's max HP each turn and heals the other side.
   const applyLeechSeedTick = (
     seededMon: Pokemon,
     healer: Pokemon,
@@ -82,7 +76,6 @@ export const useCombat = (onEnemyDefeat: (enemy: Pokemon, player: Pokemon) => Pr
     return { seeded: seededOut, healer: healerOut };
   };
 
-  // ── Drain heal helper ────────────────────────────────────────────────────────
   const applyDrainHeal = (attacker: Pokemon, damage: number, drainPct: number, isPlayer: boolean): Pokemon => {
     const healAmount = Math.max(1, Math.floor(damage * drainPct / 100));
     const newHp      = Math.min(attacker.stats.maxHp, attacker.stats.hp + healAmount);
@@ -93,7 +86,8 @@ export const useCombat = (onEnemyDefeat: (enemy: Pokemon, player: Pokemon) => Pr
     return healed;
   };
 
-  // ── Last Resort guard ────────────────────────────────────────────────────────
+  // Last Resort fails unless every other move in the current moveset has been
+  // used at least once this battle — mirrors the actual game mechanic.
   const canUseMove = (mon: Pokemon, move: Move): boolean => {
     if (!move.isLastResort) return true;
     const otherMoves = mon.moves.filter(m => m.name !== move.name);
@@ -111,11 +105,10 @@ export const useCombat = (onEnemyDefeat: (enemy: Pokemon, player: Pokemon) => Pr
 
     await wait(500);
     const { dungeonModifier } = useGameStore.getState();
-    const currentFloor = useGameStore.getState().floor;
-    const isBossFloor  = currentFloor % 10 === 0;
-    const isMiniBoss   = currentFloor % 5 === 0 && !isBossFloor;
+    const currentFloor        = useGameStore.getState().floor;
+    const isBossFloor         = currentFloor % 10 === 0;
+    const isMiniBoss          = currentFloor % 5  === 0 && !isBossFloor;
 
-    // ── Status checks ─────────────────────────────────────────────────────────
     if (currentEnemy.status === 'freeze' || currentEnemy.status === 'paralyze' || currentEnemy.status === 'sleep') {
       const isParalyzed   = currentEnemy.status === 'paralyze' && Math.random() < 0.25;
       const remainsFrozen = currentEnemy.status === 'freeze'   && Math.random() >= 0.2;
@@ -129,15 +122,15 @@ export const useCombat = (onEnemyDefeat: (enemy: Pokemon, player: Pokemon) => Pr
         return;
       }
 
-      const wokeUp    = currentEnemy.status === 'sleep';
-      const thawedOut = currentEnemy.status === 'freeze';
+      const wokeUp     = currentEnemy.status === 'sleep';
+      const thawedOut  = currentEnemy.status === 'freeze';
       const woreOffMsg = wokeUp ? `${currentEnemy.name} woke up!` : `${currentEnemy.name} thawed out!`;
       patchState((s: GameState) => ({ ...appendLog(s, woreOffMsg), enemy: { ...currentEnemy, status: 'normal' } }));
       currentEnemy = { ...currentEnemy, status: 'normal' };
+      // Paralysis only blocks the turn; it doesn't wear off until healed.
       if (!wokeUp && !thawedOut) { patchState({ playerTurn: true }); return; }
     }
 
-    // ── Burn / Poison tick ────────────────────────────────────────────────────
     if (currentEnemy.status === 'burn' || currentEnemy.status === 'poison') {
       const tickDamage = Math.max(1, Math.floor(currentEnemy.stats.maxHp * 0.0625));
       const tickedHp   = Math.max(0, currentEnemy.stats.hp - tickDamage);
@@ -149,10 +142,9 @@ export const useCombat = (onEnemyDefeat: (enemy: Pokemon, player: Pokemon) => Pr
       currentEnemy = { ...currentEnemy, stats: { ...currentEnemy.stats, hp: tickedHp } };
     }
 
-    // ── Leech Seed tick on enemy ──────────────────────────────────────────────
     if (currentEnemy.status === 'leech-seed') {
       const freshPlayer = useGameStore.getState().player ?? currentPlayer;
-      const result = applyLeechSeedTick(currentEnemy, freshPlayer, 'enemy');
+      const result      = applyLeechSeedTick(currentEnemy, freshPlayer, 'enemy');
       currentEnemy = result.seeded;
       if (currentEnemy.stats.hp <= 0) {
         await onEnemyDefeat(currentEnemy, useGameStore.getState().player ?? currentPlayer);
@@ -160,25 +152,20 @@ export const useCombat = (onEnemyDefeat: (enemy: Pokemon, player: Pokemon) => Pr
       }
     }
 
-    // ── Pick move ─────────────────────────────────────────────────────────────
     let move: Move;
     if (isBossFloor) {
       move = getSmartMove(currentEnemy, currentPlayer);
     } else if (isMiniBoss) {
-      const usableMoves    = currentEnemy.moves.filter(m => m.pp > 0 && canUseMove(currentEnemy, m));
-      const superEffective = usableMoves.filter(
-        m => m.power > 0 && calculateBattleHit(currentEnemy, currentPlayer, m, 'none').effectiveness > 1
-      );
-      move = superEffective.length > 0
-        ? superEffective.sort((a, b) => (b.power || 0) - (a.power || 0))[0]
-        : usableMoves.length > 0
-          ? usableMoves[Math.floor(Math.random() * usableMoves.length)]
+      const usable    = currentEnemy.moves.filter(m => m.pp > 0 && canUseMove(currentEnemy, m));
+      const superEff  = usable.filter(m => m.power > 0 && calculateBattleHit(currentEnemy, currentPlayer, m, 'none').effectiveness > 1);
+      move = superEff.length > 0
+        ? superEff.sort((a, b) => (b.power || 0) - (a.power || 0))[0]
+        : usable.length > 0
+          ? usable[Math.floor(Math.random() * usable.length)]
           : TACKLE_FALLBACK;
     } else {
-      const usableMoves = currentEnemy.moves.filter(m => m.pp > 0 && canUseMove(currentEnemy, m));
-      move = usableMoves.length > 0
-        ? usableMoves[Math.floor(Math.random() * usableMoves.length)]
-        : TACKLE_FALLBACK;
+      const usable = currentEnemy.moves.filter(m => m.pp > 0 && canUseMove(currentEnemy, m));
+      move = usable.length > 0 ? usable[Math.floor(Math.random() * usable.length)] : TACKLE_FALLBACK;
     }
 
     const updatedEnemyMoves = currentEnemy.moves.map((m): Move =>
@@ -188,30 +175,21 @@ export const useCombat = (onEnemyDefeat: (enemy: Pokemon, player: Pokemon) => Pr
     patchState({ enemy: currentEnemy });
     patchState((s: GameState) => appendLog(s, `${currentEnemy.name} used ${move.name}!`));
 
-    // ── Leech Seed move ───────────────────────────────────────────────────────
     if (move.leechSeed) {
       patchState({ enemyAnimation: 'animate-bounce' });
       if (currentPlayer.status === 'normal') {
         const seededPlayer = { ...currentPlayer, status: 'leech-seed' as const };
-        patchState((s: GameState) => ({
-          ...appendLog(s, `${currentPlayer.name} was seeded!`),
-          player: seededPlayer, enemyAnimation: '', playerTurn: true,
-        }));
+        patchState((s: GameState) => ({ ...appendLog(s, `${currentPlayer.name} was seeded!`), player: seededPlayer, enemyAnimation: '', playerTurn: true }));
       } else {
-        patchState((s: GameState) => ({
-          ...appendLog(s, `${currentPlayer.name} is already affected!`),
-          enemyAnimation: '', playerTurn: true,
-        }));
+        patchState((s: GameState) => ({ ...appendLog(s, `${currentPlayer.name} is already affected!`), enemyAnimation: '', playerTurn: true }));
       }
       return;
     }
 
-    // ── Stat-change move ──────────────────────────────────────────────────────
     if (move.power === 0 && move.stageChange) {
       patchState({ enemyAnimation: 'animate-bounce' });
       const targetIsPlayer = move.target === 'enemy';
-      const target  = targetIsPlayer ? currentPlayer : currentEnemy;
-      const updated = updateStatStages(target, move.stageChange);
+      const updated = updateStatStages(targetIsPlayer ? currentPlayer : currentEnemy, move.stageChange);
       patchState(targetIsPlayer ? { player: updated } : { enemy: updated });
       await wait(600);
       patchState({ enemyAnimation: '', playerTurn: true });
@@ -221,44 +199,35 @@ export const useCombat = (onEnemyDefeat: (enemy: Pokemon, player: Pokemon) => Pr
     patchState({ enemyAnimation: 'animate-lunge-left' });
     await wait(300);
 
-    // ── Accuracy / dodge ──────────────────────────────────────────────────────
     const dodgeChance = getEffectiveStat(currentPlayer, 'dodge', dungeonModifier);
     if (Math.random() * 100 > move.accuracy || Math.random() * 100 < dodgeChance) {
-      const msg = Math.random() * 100 > move.accuracy
-        ? `${currentEnemy.name} missed!` : `${currentPlayer.name} dodged!`;
+      const msg = Math.random() * 100 > move.accuracy ? `${currentEnemy.name} missed!` : `${currentPlayer.name} dodged!`;
       patchState((s: GameState) => ({ ...appendLog(s, msg), enemyAnimation: '', playerTurn: true }));
       return;
     }
 
-    // ── Damage ────────────────────────────────────────────────────────────────
     const hitResult   = calculateBattleHit(currentEnemy, currentPlayer, move, dungeonModifier);
     const finalDamage = hitResult.damage;
     const remainingHp = Math.max(currentPlayer.stats.hp - finalDamage, 0);
 
-    const effectivenessMsg = hitResult.effectiveness === 0 ? " It doesn't affect the player..."
+    const effectMsg = hitResult.effectiveness === 0 ? " It doesn't affect the player..."
       : hitResult.effectiveness >= 2 ? ' It\'s super effective!'
-      : hitResult.effectiveness < 1  ? ' It\'s not very effective...'
-      : '';
-    const critMsg   = hitResult.isCrit         ? ' A Critical Hit!' : '';
-    const doubleMsg = hitResult.isDoubleStrike  ? ' It hit twice!'  : '';
+      : hitResult.effectiveness < 1  ? ' It\'s not very effective...' : '';
+    const critMsg   = hitResult.isCrit        ? ' A Critical Hit!' : '';
+    const doubleMsg = hitResult.isDoubleStrike ? ' It hit twice!'  : '';
 
     patchState((s: GameState) => ({
-      ...appendLog(s, `${currentEnemy.name} dealt ${finalDamage} damage!${effectivenessMsg}${critMsg}${doubleMsg}`),
+      ...appendLog(s, `${currentEnemy.name} dealt ${finalDamage} damage!${effectMsg}${critMsg}${doubleMsg}`),
       playerAnimation: 'animate-shake',
       player: { ...currentPlayer, stats: { ...currentPlayer.stats, hp: remainingHp } },
     }));
 
-    if (move.drain && move.drain > 0 && finalDamage > 0) {
-      currentEnemy = applyDrainHeal(currentEnemy, finalDamage, move.drain, false);
-    }
+    if (move.drain && move.drain > 0 && finalDamage > 0) currentEnemy = applyDrainHeal(currentEnemy, finalDamage, move.drain, false);
 
     if (move.statusEffect && move.statusEffect !== 'stunned' && currentPlayer.status === 'normal' && hitResult.effectiveness > 0) {
       if (Math.random() < 0.3) {
         const s = move.statusEffect as 'burn' | 'poison' | 'paralyze' | 'freeze' | 'sleep';
-        patchState((st: GameState) => ({
-          ...appendLog(st, `${currentPlayer.name} was inflicted with ${s}!`),
-          player: { ...st.player!, status: s },
-        }));
+        patchState((st: GameState) => ({ ...appendLog(st, `${currentPlayer.name} was inflicted with ${s}!`), player: { ...st.player!, status: s } }));
       }
     }
 
@@ -283,7 +252,6 @@ export const useCombat = (onEnemyDefeat: (enemy: Pokemon, player: Pokemon) => Pr
       return;
     }
 
-    // ── Player status ─────────────────────────────────────────────────────────
     if (player.status === 'paralyze' && Math.random() < 0.25) {
       patchState((s: GameState) => appendLog(s, `${player.name} is paralyzed and can't move!`));
       await executeEnemyTurn(player, enemy); return;
@@ -311,7 +279,6 @@ export const useCombat = (onEnemyDefeat: (enemy: Pokemon, player: Pokemon) => Pr
     patchState({ player: updatedPlayer, playerAnimation: 'animate-lunge-right' });
     patchState((s: GameState) => appendLog(s, `${player.name} used ${move.name}!`));
 
-    // ── Leech Seed ────────────────────────────────────────────────────────────
     if (move.leechSeed) {
       if (enemy.status === 'normal') {
         const seededEnemy = { ...enemy, status: 'leech-seed' as const };
@@ -325,7 +292,6 @@ export const useCombat = (onEnemyDefeat: (enemy: Pokemon, player: Pokemon) => Pr
       return;
     }
 
-    // ── Stat-change move ──────────────────────────────────────────────────────
     if (move.power === 0 && move.stageChange) {
       const targetIsEnemy = move.target === 'enemy';
       const target  = targetIsEnemy ? enemy : updatedPlayer;
@@ -345,46 +311,37 @@ export const useCombat = (onEnemyDefeat: (enemy: Pokemon, player: Pokemon) => Pr
 
     await wait(300);
 
-    // ── Accuracy / dodge ──────────────────────────────────────────────────────
     const enemyDodge = getEffectiveStat(enemy, 'dodge', dungeonModifier);
     if (Math.random() * 100 > move.accuracy || Math.random() * 100 < enemyDodge) {
-      const msg = Math.random() * 100 > move.accuracy
-        ? `${player.name} missed!` : `${enemy.name} dodged!`;
+      const msg = Math.random() * 100 > move.accuracy ? `${player.name} missed!` : `${enemy.name} dodged!`;
       patchState((s: GameState) => ({ ...appendLog(s, msg), playerAnimation: '' }));
       await executeEnemyTurn(updatedPlayer, enemy);
       return;
     }
 
-    // ── Damage ────────────────────────────────────────────────────────────────
     const hitResult        = calculateBattleHit(updatedPlayer, enemy, move, dungeonModifier);
     const finalDamage      = hitResult.damage;
     const remainingEnemyHp = Math.max(enemy.stats.hp - finalDamage, 0);
 
-    const effectivenessMsg = hitResult.effectiveness === 0 ? " It doesn't affect them..."
+    const effectMsg = hitResult.effectiveness === 0 ? " It doesn't affect them..."
       : hitResult.effectiveness >= 4 ? ' It\'s super effective!!'
       : hitResult.effectiveness >= 2 ? ' It\'s super effective!'
-      : hitResult.effectiveness < 1  ? ' It\'s not very effective...'
-      : '';
+      : hitResult.effectiveness < 1  ? ' It\'s not very effective...' : '';
     const critMsg   = hitResult.isCrit        ? ' A Critical Hit!' : '';
     const doubleMsg = hitResult.isDoubleStrike ? ' It hit twice!'  : '';
 
     patchState((s: GameState) => ({
-      ...appendLog(s, `It dealt ${finalDamage} damage!${effectivenessMsg}${critMsg}${doubleMsg}`),
+      ...appendLog(s, `It dealt ${finalDamage} damage!${effectMsg}${critMsg}${doubleMsg}`),
       enemyAnimation: 'animate-shake',
       enemy: { ...enemy, stats: { ...enemy.stats, hp: remainingEnemyHp } },
     }));
 
-    if (move.drain && move.drain > 0 && finalDamage > 0) {
-      updatedPlayer = applyDrainHeal(updatedPlayer, finalDamage, move.drain, true);
-    }
+    if (move.drain && move.drain > 0 && finalDamage > 0) updatedPlayer = applyDrainHeal(updatedPlayer, finalDamage, move.drain, true);
 
     if (move.statusEffect && move.statusEffect !== 'stunned' && enemy.status === 'normal' && hitResult.effectiveness > 0) {
       if (Math.random() < 0.3) {
         const s = move.statusEffect as 'burn' | 'poison' | 'paralyze' | 'freeze' | 'sleep';
-        patchState((st: GameState) => ({
-          ...appendLog(st, `${enemy.name} was inflicted with ${s}!`),
-          enemy: { ...st.enemy!, status: s },
-        }));
+        patchState((st: GameState) => ({ ...appendLog(st, `${enemy.name} was inflicted with ${s}!`), enemy: { ...st.enemy!, status: s } }));
       }
     }
 
@@ -393,7 +350,6 @@ export const useCombat = (onEnemyDefeat: (enemy: Pokemon, player: Pokemon) => Pr
 
     if (remainingEnemyHp <= 0) { await onEnemyDefeat(enemy, updatedPlayer); return; }
 
-    // ── Burn / Poison tick on player ──────────────────────────────────────────
     const playerAfterMove = useGameStore.getState().player;
     if (playerAfterMove && (playerAfterMove.status === 'burn' || playerAfterMove.status === 'poison')) {
       const tickDamage = Math.max(1, Math.floor(playerAfterMove.stats.maxHp * 0.0625));
@@ -405,9 +361,8 @@ export const useCombat = (onEnemyDefeat: (enemy: Pokemon, player: Pokemon) => Pr
       if (tickedHp <= 0) { if (floor > highScore) setHighScore(floor); return; }
     }
 
-    // ── Leech Seed tick on player ─────────────────────────────────────────────
     const playerBeforeEnemyTurn = useGameStore.getState().player ?? updatedPlayer;
-    const currentEnemy          = useGameStore.getState().enemy ?? { ...enemy, stats: { ...enemy.stats, hp: remainingEnemyHp } };
+    const currentEnemy          = useGameStore.getState().enemy  ?? { ...enemy, stats: { ...enemy.stats, hp: remainingEnemyHp } };
 
     if (playerBeforeEnemyTurn.status === 'leech-seed') {
       const result = applyLeechSeedTick(playerBeforeEnemyTurn, currentEnemy, 'player');

@@ -1,4 +1,3 @@
-// src/utils/battleCalculators.ts
 import { type Pokemon } from '../types/pokemon';
 import { type Move } from '../types/move';
 import { type DungeonModifier } from '../store/gameStore';
@@ -31,14 +30,16 @@ export const calculateBattleHit = (
   const aSpeed = getEffectiveStat(attacker, 'speed', modifier);
   const dSpeed = getEffectiveStat(defender, 'speed', modifier);
 
-  let hits          = 1;
+  // Double-strike fires when the attacker is meaningfully faster — mirrors the
+  // Gen 1 "Swift Swim doubles your hits" design intent without being too common.
+  let hits           = 1;
   let isDoubleStrike = false;
   if (aSpeed >= dSpeed * 1.5 && Math.random() < 0.3) {
     hits           = 2;
     isDoubleStrike = true;
   }
 
-  // Physical/Special split — use the correct offensive and defensive stat pair
+  // Physical moves use Attack vs Defense; special moves use SpAtk vs SpDef.
   const isSpecial = move.damageClass === 'special';
   const atkStat   = isSpecial ? getEffectiveStat(attacker, 'specialAttack',  modifier)
                               : getEffectiveStat(attacker, 'attack',          modifier);

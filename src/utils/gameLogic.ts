@@ -1,27 +1,22 @@
-// src/utils/gameLogic.ts
 import type { Pokemon, StatKey, StageStatKey } from '../types/pokemon';
 import { type Upgrade } from '../types/upgrade';
 import type { DungeonModifier } from '../store/gameStore';
 import { applyStatStage } from './statCalculator';
 
 export const EVOLUTION_MAP: Record<number, number> = {
-  // Gen 1 starters
-  1: 2,   2: 3,
-  4: 5,   5: 6,
-  7: 8,   8: 9,
-  // Gen 1 others
-  10: 11, 11: 12,
-  13: 14, 14: 15,
-  16: 17, 17: 18,
-  25: 26,
-  // Gen 2 starters
-  152: 153, 153: 154,
-  155: 156, 156: 157,
-  158: 159, 159: 160,
-  // Gen 3 starters
-  252: 253, 253: 254,
-  255: 256, 256: 257,
-  258: 259, 259: 260,
+  1: 2,   2: 3,   // Bulbasaur line
+  4: 5,   5: 6,   // Charmander line
+  7: 8,   8: 9,   // Squirtle line
+  10: 11, 11: 12, // Caterpie line
+  13: 14, 14: 15, // Weedle line
+  16: 17, 17: 18, // Pidgey line
+  25: 26,         // Pikachu → Raichu
+  152: 153, 153: 154, // Chikorita line
+  155: 156, 156: 157, // Cyndaquil line
+  158: 159, 159: 160, // Totodile line
+  252: 253, 253: 254, // Treecko line
+  255: 256, 256: 257, // Torchic line
+  258: 259, 259: 260, // Mudkip line
 };
 
 const TYPE_CHART: Record<string, { superEffective: string[]; notVeryEffective: string[]; immune: string[] }> = {
@@ -51,9 +46,9 @@ export const getTypeEffectiveness = (moveType: string, defenderTypes: string[]):
 
   let multiplier = 1;
   for (const defType of defenderTypes) {
-    if (chart.immune.includes(defType)) return 0;
-    if (chart.superEffective.includes(defType)) multiplier = Math.max(multiplier, 2);
-    if (chart.notVeryEffective.includes(defType)) multiplier = Math.min(multiplier, 0.5);
+    if (chart.immune.includes(defType))          return 0;
+    if (chart.superEffective.includes(defType))  multiplier *= 2;
+    if (chart.notVeryEffective.includes(defType)) multiplier *= 0.5;
   }
   return multiplier;
 };
@@ -69,43 +64,40 @@ const UPGRADES: Upgrade[] = [
 ];
 
 export const getRandomUpgrades = (count: number, playerId?: number): Upgrade[] => {
-  const currentPool = [...UPGRADES];
-
+  const pool = [...UPGRADES];
   if (playerId && EVOLUTION_MAP[playerId]) {
-    currentPool.push({ id: 'evo_stone', name: 'Evolution Stone', description: 'Evolve into your next form!', stat: 'evolve', amount: 0 });
+    pool.push({ id: 'evo_stone', name: 'Evolution Stone', description: 'Evolve into your next form!', stat: 'evolve', amount: 0 });
   }
-
-  return currentPool.sort(() => 0.5 - Math.random()).slice(0, count);
+  return pool.sort(() => 0.5 - Math.random()).slice(0, count);
 };
 
 export const scaleEnemyStats = (basePokemon: Pokemon, floor: number): Pokemon => {
   const multiplier = Math.pow(1.06, floor > 1 ? floor - 1 : 0);
-
   const s = { ...basePokemon.stats };
 
-  // Guard all stats with ?? fallbacks so stale saves without the new fields don't NaN
-  s.maxHp          = Math.max(1, Math.floor((s.maxHp          ?? 10)          * multiplier));
+  // ?? fallbacks guard against stale saves that predate specialAttack/specialDefense.
+  // specialAttack/specialDefense fall back to their physical counterparts so scaling
+  // produces a reasonable value even without real data.
+  s.maxHp          = Math.max(1, Math.floor((s.maxHp          ?? 10)       * multiplier));
   s.hp             = s.maxHp;
-  s.attack         = Math.max(1, Math.floor((s.attack         ?? 5)           * multiplier));
-  s.defense        = Math.max(1, Math.floor((s.defense        ?? 5)           * multiplier));
-  s.specialAttack  = Math.max(1, Math.floor((s.specialAttack  ?? s.attack)    * multiplier));
-  s.specialDefense = Math.max(1, Math.floor((s.specialDefense ?? s.defense)   * multiplier));
-  s.speed          = Math.max(1, Math.floor((s.speed          ?? 5)           * multiplier));
+  s.attack         = Math.max(1, Math.floor((s.attack         ?? 5)        * multiplier));
+  s.defense        = Math.max(1, Math.floor((s.defense        ?? 5)        * multiplier));
+  s.specialAttack  = Math.max(1, Math.floor((s.specialAttack  ?? s.attack) * multiplier));
+  s.specialDefense = Math.max(1, Math.floor((s.specialDefense ?? s.defense)* multiplier));
+  s.speed          = Math.max(1, Math.floor((s.speed          ?? 5)        * multiplier));
 
   return { ...basePokemon, level: floor, stats: s };
 };
 
 export const getEffectiveStat = (mon: Pokemon, stat: StatKey, modifier: DungeonModifier = 'none') => {
-  // Guard: stats saved before specialAttack/specialDefense existed will be undefined
+  // ?? 0 guards against undefined on saves from before specialAttack/specialDefense existed.
   const baseValue = mon.stats[stat] ?? 0;
   let flatBonus = 0;
 
-  if (mon.equipment && mon.equipment.length > 0) {
-    mon.equipment.forEach(item => {
-      const mod = item.statModifiers[stat];
-      if (mod !== undefined) flatBonus += mod;
-    });
-  }
+  mon.equipment?.forEach(item => {
+    const mod = item.statModifiers[stat];
+    if (mod !== undefined) flatBonus += mod;
+  });
 
   let finalValue = baseValue + flatBonus;
 

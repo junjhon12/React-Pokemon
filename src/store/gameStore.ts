@@ -1,4 +1,3 @@
-// src/store/gameStore.ts
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import type { Pokemon } from '../types/pokemon';
@@ -19,9 +18,9 @@ export interface GameState {
   playerTurn: boolean;
   playerAnimation: string;
   enemyAnimation: string;
-  // Single pending move (for the "which move to forget" overlay)
   pendingMove: Move | null;
-  // Three move choices for the post-battle draft picker
+  // The three move choices shown in the post-battle draft picker.
+  // Cleared once the player picks or skips.
   pendingMoveChoices: Move[];
   dungeonModifier: DungeonModifier;
 
@@ -39,10 +38,11 @@ export interface GameState {
   setPendingMove: (move: Move | null) => void;
   setPendingMoveChoices: (moves: Move[]) => void;
   setDungeonModifier: (mod: DungeonModifier) => void;
-
   resetRun: () => void;
 }
 
+// Backfills specialAttack/specialDefense on saves from before those stats existed,
+// so stale localStorage data doesn't produce NaN in the stats panel.
 const migratePokemon = (mon: Pokemon | null): Pokemon | null => {
   if (!mon) return null;
   const stats = { ...mon.stats };
@@ -69,25 +69,25 @@ export const useGameStore = create<GameState>()(
       pendingMoveChoices: [],
       dungeonModifier:    'none',
 
-      setPlayerName:          (playerName)          => set({ playerName }),
-      setPlayer:              (player)              => set({ player }),
-      setEnemy:               (enemy)               => set({ enemy }),
-      setFloor:               (floor)               => set({ floor }),
-      setUpgrades:            (upgrades)            => set({ upgrades }),
-      addGameLog:             (messages)            => set((state) => ({
+      setPlayerName:         (playerName)         => set({ playerName }),
+      setPlayer:             (player)             => set({ player }),
+      setEnemy:              (enemy)              => set({ enemy }),
+      setFloor:              (floor)              => set({ floor }),
+      setUpgrades:           (upgrades)           => set({ upgrades }),
+      addGameLog:            (messages)           => set((state) => ({
         gameLog: [...state.gameLog, ...messages].slice(-100),
       })),
-      setIsGameStarted:       (isGameStarted)       => set({ isGameStarted }),
-      setPlayerTurn:          (playerTurn)          => set({ playerTurn }),
-      setPlayerAnimation:     (playerAnimation)     => set({ playerAnimation }),
-      setEnemyAnimation:      (enemyAnimation)      => set({ enemyAnimation }),
+      setIsGameStarted:      (isGameStarted)      => set({ isGameStarted }),
+      setPlayerTurn:         (playerTurn)         => set({ playerTurn }),
+      setPlayerAnimation:    (playerAnimation)    => set({ playerAnimation }),
+      setEnemyAnimation:     (enemyAnimation)     => set({ enemyAnimation }),
       setHighScore: (score) => {
         localStorage.setItem('rogue-score', score.toString());
         set({ highScore: score });
       },
-      setPendingMove:         (pendingMove)         => set({ pendingMove }),
-      setPendingMoveChoices:  (pendingMoveChoices)  => set({ pendingMoveChoices }),
-      setDungeonModifier:     (dungeonModifier)     => set({ dungeonModifier }),
+      setPendingMove:        (pendingMove)        => set({ pendingMove }),
+      setPendingMoveChoices: (pendingMoveChoices) => set({ pendingMoveChoices }),
+      setDungeonModifier:    (dungeonModifier)    => set({ dungeonModifier }),
 
       resetRun: () => set({
         player:             null,
@@ -107,6 +107,9 @@ export const useGameStore = create<GameState>()(
     {
       name:    'pokemon-rogue-save',
       storage: createJSONStorage(() => localStorage),
+      // Only persist durable run state. Transient battle state (animations, log,
+      // turn order) is intentionally excluded — persisting it caused stale replays
+      // and broken battle state on page refresh.
       partialize: (state) => ({
         player:        state.player,
         enemy:         state.enemy,
